@@ -20,29 +20,29 @@ export function getJobDetailRegExpMatchLogicConfig({ formContent }) {
   if (formContent.jobDetailRegExpMatchLogic === JobDetailRegExpMatchLogic.EVERY) {
     Object.assign(result, {
       logicText: '且',
-      inputPlaceholderText: 'true'
+      inputPlaceholderText: '留空表示不限（默认通过）'
     })
   }
   if (formContent.jobDetailRegExpMatchLogic === JobDetailRegExpMatchLogic.SOME) {
     Object.assign(result, {
       logicText: '或',
-      inputPlaceholderText: 'false'
+      inputPlaceholderText: '留空表示不参与匹配'
     })
   }
 
   if (isJobDetailRegExpEmpty({ formContent })) {
-    result.inputPlaceholderText = 'true'
+    result.inputPlaceholderText = '留空表示不限（默认通过）'
   }
   return result
 }
 
 export const expectSalaryCalculateWayOption = [
   {
-    name: '月薪（单位为 千元 - 即“k”）',
+    name: '月薪（千元 / K）',
     value: SalaryCalculateWay.MONTH_SALARY
   },
   {
-    name: '总包（单位为 万元 - 即“W”）',
+    name: '年薪总包（万元 / W）',
     value: SalaryCalculateWay.ANNUAL_PACKAGE
   }
 ]
@@ -80,7 +80,7 @@ export function getRuleOfExpectJobNameRegExpStr({ gtagRenderer, jobDetailRegExpS
       gtagRenderer('valid_reg_exp_for_expect_job_name', { v: value })
       cb()
     } catch (err) {
-      cb(new Error(`正则无效：${(err instanceof Error ? err.message : undefined)}`))
+      cb(new Error(`正则表达式语法有误，请检查括号或转义符`))
       jobDetailRegExpSectionEl.value?.scrollIntoViewIfNeeded()
       gtagRenderer('invalid_reg_exp_for_expect_job_name', { v: value })
     }
@@ -99,7 +99,7 @@ export function getRuleOfExpectJobTypeRegExpStr({ gtagRenderer, jobDetailRegExpS
       gtagRenderer('valid_reg_exp_for_expect_job_type', { v: value })
       cb()
     } catch (err) {
-      cb(new Error(`正则无效：${(err instanceof Error ? err.message : undefined)}`))
+      cb(new Error(`正则表达式语法有误，请检查括号或转义符`))
       jobDetailRegExpSectionEl.value?.scrollIntoViewIfNeeded()
       gtagRenderer('invalid_reg_exp_for_expect_job_type', { v: value })
     }
@@ -118,7 +118,7 @@ export function getRuleOfExpectJobDescRegExpStr({ gtagRenderer, jobDetailRegExpS
       gtagRenderer('valid_reg_exp_for_expect_job_desc', { v: value })
       cb()
     } catch (err) {
-      cb(new Error(`正则无效：${(err instanceof Error ? err.message : undefined)}`))
+      cb(new Error(`正则表达式语法有误，请检查括号或转义符`))
       jobDetailRegExpSectionEl.value?.scrollIntoViewIfNeeded()
       gtagRenderer('invalid_reg_exp_for_expect_job_desc', { v: value })
     }
@@ -140,7 +140,7 @@ export function getRuleOfBlockCompanyNameRegExpStr({
       gtagRenderer('valid_reg_exp_for_bcn', { v: value })
       cb()
     } catch (err) {
-      cb(new Error(`正则无效：${(err instanceof Error ? err.message : undefined)}`))
+      cb(new Error(`正则表达式语法有误，请检查括号或转义符`))
       blockCompanyNameRegExpSectionEl.value?.scrollIntoViewIfNeeded()
       gtagRenderer('invalid_reg_exp_for_bcn', { v: value })
     }
@@ -184,7 +184,7 @@ export const expectCompanyTemplateList = [
 
 export const blockCompanyNameRegExpTemplateList = [
   {
-    name: '不限公司（不按照公司名称来标注不合适）',
+    name: '清空屏蔽名单（不屏蔽任何公司）',
     value: ''
   },
   {
@@ -228,11 +228,11 @@ export function getHandlerForBlockCompanyNameRegExpTemplateClicked({ gtagRendere
 
 export const jobDetailRegExpMatchLogicOptions = [
   {
-    name: '“且”模式 - 所有正则匹配时才认为职位匹配',
+    name: '全部满足（“且”：所有已填规则均需命中）',
     value: JobDetailRegExpMatchLogic.EVERY
   },
   {
-    name: '“或”模式 - 任一正则匹配时即认为职位匹配',
+    name: '任一满足（“或”：命中任意一条规则即可）',
     value: JobDetailRegExpMatchLogic.SOME
   }
 ]

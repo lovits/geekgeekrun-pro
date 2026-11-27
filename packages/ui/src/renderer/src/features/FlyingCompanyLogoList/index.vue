@@ -120,4 +120,9 @@ onMounted(async () => {
     animation-delay: calc(-0.1 * var(--dot-run-duration));
   }
 }
+html.dark .flying-company-logo-list-container .dot {
+  mix-blend-mode: normal;
+  border-radius: 8px;
+  filter: brightness(0.88);
+}
 </style>

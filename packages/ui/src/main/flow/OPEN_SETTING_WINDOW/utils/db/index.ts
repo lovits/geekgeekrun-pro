@@ -5,47 +5,63 @@ import { PageReq, JobLibraryReq, CompanyLibraryReq } from '../../../../../common
 
 let worker: Worker | null = null
 let workerExitCode: number | null = null
+let initPromise: Promise<Worker> | null = null
 export const initDbWorker = () => {
-  if (!worker || typeof workerExitCode === 'number') {
-    worker = createDbWorker()
-    workerExitCode = null
-    return new Promise((resolve, reject) => {
-      worker!.once('exit', (exitCode) => {
-        workerExitCode = exitCode
-        worker = null
-      })
-      worker!.on('message', function handler(data) {
-        if (data.type === 'DB_INIT_SUCCESS') {
-          resolve(worker)
-          // attach more event
-          worker?.off('message', handler)
-        } else if (data.type === 'DB_INIT_FAIL') {
-          reject(data.error)
-          worker?.terminate()
-          worker?.off('message', handler)
-          worker = null
-        }
-      })
-    })
-  } else {
-    return worker
+  if (worker && typeof workerExitCode !== 'number') {
+    return initPromise ?? Promise.resolve(worker)
   }
+  if (initPromise) return initPromise
+  const currentWorker = createDbWorker()
+  worker = currentWorker
+  workerExitCode = null
+  initPromise = new Promise<Worker>((resolve, reject) => {
+    currentWorker.once('exit', (exitCode) => {
+      workerExitCode = exitCode
+      if (worker === currentWorker) {
+        worker = null
+        initPromise = null
+      }
+      reject(new Error(`数据库线程异常退出 (${exitCode})`))
+    })
+    currentWorker.on('message', function handler(data) {
+      if (data.type === 'DB_INIT_SUCCESS') {
+        currentWorker.off('message', handler)
+        resolve(currentWorker)
+      } else if (data.type === 'DB_INIT_FAIL') {
+        currentWorker.off('message', handler)
+        currentWorker.terminate()
+        if (worker === currentWorker) {
+          worker = null
+          initPromise = null
+        }
+        reject(data.error)
+      }
+    })
+  })
+  return initPromise
 }
 
 const createWorkerPromise = async (data) => {
-  await initDbWorker()
+  const activeWorker = await initDbWorker()
   const uuid = randomUUID()
-  worker!.postMessage({
-    _uuid: uuid,
-    ...data
-  })
-  return new Promise<{ data?: any; [key: string]: any }>((resolve) => {
-    worker!.on('message', function handler(data) {
-      const { _uuid, ...payload } = data ?? {}
+  return new Promise<{ data?: any; [key: string]: any }>((resolve, reject) => {
+    function onExit(code: number) {
+      activeWorker.off('message', handler)
+      reject(new Error(`数据库查询中断 (${code})`))
+    }
+    function handler(msg) {
+      const { _uuid, ...payload } = msg ?? {}
       if (_uuid === uuid) {
+        activeWorker.off('message', handler)
+        activeWorker.off('exit', onExit)
         resolve(payload)
-        worker?.off('message', handler)
       }
+    }
+    activeWorker.once('exit', onExit)
+    activeWorker.on('message', handler)
+    activeWorker.postMessage({
+      _uuid: uuid,
+      ...data
     })
   })
 }

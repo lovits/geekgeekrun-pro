@@ -188,10 +188,17 @@ function handleMessage(socket, message) {
         workerId,
         command,
         args,
-        env
+        env,
+        keepAliveOnDisconnect
       } = message
       if (workers.has(workerId)) {
         console.log(`工具进程 ${workerId} 已在运行`);
+        sendResponse(socket, _callbackUuid, {
+          success: true,
+          alreadyRunning: true,
+          message: `工具进程 ${workerId} 已在运行`,
+          workerId
+        });
         return;
       }
       startWorker({
@@ -205,17 +212,14 @@ function handleMessage(socket, message) {
         message: `工具进程 ${message.workerId} 已启动`,
         workerId: message.workerId 
       });
-      let socketToWorkerIdSet = socketToWorkerIdSetMap.get(socket)
-      if (
-        !(socketToWorkerIdSet instanceof Set)
-      ) {
-        socketToWorkerIdSet = new Set()
-        socketToWorkerIdSetMap.set(
-          socket,
-          socketToWorkerIdSet
-        )
+      if (!keepAliveOnDisconnect) {
+        let socketToWorkerIdSet = socketToWorkerIdSetMap.get(socket)
+        if (!(socketToWorkerIdSet instanceof Set)) {
+          socketToWorkerIdSet = new Set()
+          socketToWorkerIdSetMap.set(socket, socketToWorkerIdSet)
+        }
+        socketToWorkerIdSet.add(workerId)
       }
-      socketToWorkerIdSet.add(workerId)
       return
     }
 
@@ -246,6 +250,7 @@ function handleMessage(socket, message) {
 
 // 启动工具进程
 function startWorker({ workerId, command, args, env }, restartCount = 0) {
+  stoppedWorkers.delete(workerId);
   const noAutoRestartExitCodeSet = new Set([0]);
   (env.GEEKGEEKRUND_NO_AUTO_RESTART_EXIT_CODE ?? '')
     .split(',')
@@ -264,9 +269,7 @@ function startWorker({ workerId, command, args, env }, restartCount = 0) {
     }
   });
 
-  let output = '';
   workerProcess.stdout.on('data', (data) => {
-    output += data.toString();
     console.log(`工具进程 ${workerId} 输出:`, data.toString().trim());
   });
 

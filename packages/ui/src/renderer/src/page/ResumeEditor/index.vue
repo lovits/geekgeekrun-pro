@@ -2,15 +2,18 @@
   <div class="resume-editor-page">
     <div class="main-wrapper">
       <main>
-        <div class="mt1em mb1em flex flex-items-center flex-justify-between">
-          <span>简历编辑器</span>
-        </div>
-        <el-alert type="info" :closable="false" mb20px line-height-1.25em>
+        <header class="ggr-page-header" style="margin-bottom: 14px">
+          <div>
+            <h2 class="ggr-page-title">本地简历编辑</h2>
+            <p class="ggr-page-desc">供 AI 职位匹配、HR 自动回复与跟进消息参考，仅保存在本地</p>
+          </div>
+        </header>
+        <el-alert type="info" :closable="false" mb20px line-height-1.5em>
           <ul pl16px m0>
             <li>
-              此简历将作为提示词的一部分提交给语言大模型，仅在匹配职位、生成已读不回提醒消息时使用；大部分信息非必填，但在不填写的情况下，可能会匹配到不准确的职位或生成预料之外的已读不回提醒消息
+              建议尽量完整填写工作与项目经历，信息越具体，AI 岗位筛选和沟通回复越贴合真实情况。
             </li>
-            <li>期望薪资仅作匹配职位使用，不会用作生成已读不回提醒消息</li>
+            <li>期望薪资仅用于岗位匹配评估，不会在自动跟进消息中对外透露。</li>
           </ul>
         </el-alert>
         <el-form
@@ -41,11 +44,13 @@
               <div
                 :style="{
                   display: 'grid',
-                  gridTemplateColumns: '1fr 1fr'
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '10px',
+                  width: '100%'
                 }"
               >
-                <el-input v-model="formContent.expectSalary[0]" placeholder="下限" />
-                <el-input v-model="formContent.expectSalary[1]" placeholder="上限" />
+                <el-input v-model="formContent.expectSalary[0]" placeholder="最低薪资" />
+                <el-input v-model="formContent.expectSalary[1]" placeholder="最高薪资" />
               </div>
             </el-form-item>
           </div>
@@ -109,7 +114,7 @@
                     @click="removeWorkExp(index)"
                   />
                 </div>
-                <div>
+                <div style="flex: 1; min-width: 0">
                   <div
                     :style="{
                       display: 'grid',
@@ -129,7 +134,9 @@
                       <div
                         :style="{
                           display: 'grid',
-                          gridTemplateColumns: '1fr 1fr'
+                          gridTemplateColumns: '1fr 1fr',
+                          gap: '8px',
+                          width: '100%'
                         }"
                       >
                         <el-date-picker
@@ -175,7 +182,7 @@
                   <div
                     v-if="index !== formContent.geekWorkExpList.length - 1"
                     class="mt20px mb20px h1px"
-                    style="background-color: #dcdcdc"
+                    style="background-color: var(--el-border-color-lighter)"
                   />
                 </div>
               </div>
@@ -229,7 +236,7 @@
                     @click="removeProjExp(index)"
                   />
                 </div>
-                <div>
+                <div style="flex: 1; min-width: 0">
                   <div
                     :style="{
                       display: 'grid',
@@ -252,7 +259,9 @@
                       <div
                         :style="{
                           display: 'grid',
-                          gridTemplateColumns: '1fr 1fr'
+                          gridTemplateColumns: '1fr 1fr',
+                          gap: '8px',
+                          width: '100%'
                         }"
                       >
                         <el-date-picker
@@ -295,7 +304,7 @@
                   <div
                     v-if="index !== formContent.geekProjExpList.length - 1"
                     class="mt20px mb20px h1px"
-                    style="background-color: #dcdcdc"
+                    style="background-color: var(--el-border-color-lighter)"
                   />
                 </div>
               </div>
@@ -304,14 +313,12 @@
         </el-form>
       </main>
     </div>
-    <footer pt10px pb10px flex flex-justify-center>
-      <div w768px flex flex-justify-between>
-        <div>
-          <!-- <el-button type="text" @click="handleTestAvailability">测试可用性</el-button> -->
-        </div>
-        <div>
+    <footer class="resume-footer">
+      <div class="resume-footer__inner">
+        <div></div>
+        <div flex gap-8px>
           <el-button @click="handleCancel">取消</el-button>
-          <el-button type="primary" @click="handleSubmit">确定</el-button>
+          <el-button type="primary" @click="handleSubmit">保存简历</el-button>
         </div>
       </div>
     </footer>
@@ -417,10 +424,11 @@ const handleSubmit = async () => {
     try {
       gtagRenderer('rc_not_enough_dialog_show')
       await ElMessageBox.confirm(
-        `简历内容可能不够充足（各个部分内容长度相加 <800 字）<br />后续大模型根据简历生成的内容将可能不符合预期（例如相同内容重复生成、生成预期之外的内容）<br /><br />要继续保存吗？`,
+        `当前简历内容较少（总字数不足 800 字），可能影响 AI 岗位匹配准确度与自动跟进消息质量。<br /><br />是否仍然保存？`,
+        '简历内容偏少',
         {
-          cancelButtonText: '不，我再改改',
-          confirmButtonText: '是的，继续保存',
+          cancelButtonText: '继续补充',
+          confirmButtonText: '仍然保存',
           dangerouslyUseHTMLString: true
         }
       )
@@ -549,14 +557,26 @@ onMounted(() => {
   flex-direction: column;
   height: 100vh;
   .main-wrapper {
+    flex: 1;
     overflow: auto;
     main {
       margin: 0 auto;
-      max-width: 768px;
+      max-width: 780px;
+      padding: 22px 24px 28px;
+      box-sizing: border-box;
     }
   }
-  footer {
-    background-color: #f0f0f0;
+  .resume-footer {
+    padding: 12px 24px;
+    background-color: var(--el-bg-color);
+    border-top: 1px solid var(--el-border-color-light);
+  }
+  .resume-footer__inner {
+    max-width: 780px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
   }
 }
 </style>

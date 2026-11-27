@@ -8,78 +8,43 @@
       }"
     >
       <div class="form-wrap geek-auto-start-run-with-boss">
-        <header class="page-heading"><h2>自动开聊</h2></header>
+        <header class="page-heading ggr-page-header">
+          <div>
+            <h2 class="ggr-page-title">自动开聊</h2>
+            <p class="ggr-page-desc">按来源与条件组合查找职位，通过规则过滤与 AI 评估后自动向 BOSS 发起沟通</p>
+          </div>
+        </header>
         <el-form ref="formRef" :model="formContent" label-position="top" :rules="formRules">
           <el-card class="config-section">
-            <div>
-              <div class="section-title">
-                摸鱼模式
-              </div>
-              <div>
-                <el-checkbox
-                  v-model="formContent.isSageTimeEnabled"
-                  @change="
-                    (v) => {
-                      gtagRenderer('sage_t_enable_changed', { v })
-                    }
-                  "
-                >
-                  启用摸鱼模式
-                </el-checkbox>
-              </div>
-              <div pl-1.5em font-size-12px>
-                <div
-                  :style="{
-                    color: formContent.isSageTimeEnabled ? '' : '#aaa'
-                  }"
-                >
+            <div class="section-title">运行节奏与定时开聊</div>
+            <div class="rhythm-box">
+              <div class="settings-subtitle">操作休息策略</div>
+              <el-radio-group v-model="restMode">
+                <el-radio value="off" label="off">不启用休息</el-radio>
+                <el-radio value="operations" label="operations">按累计操作次数休息</el-radio>
+                <el-radio value="success" label="success">按成功开聊次数休息</el-radio>
+              </el-radio-group>
+              <div class="rest-grid">
+                <div class="rest-row" :class="{ muted: restMode !== 'operations' }">
                   每累计操作
-                  <el-form-item mb0 inline-block prop="sageTimeOpTimes">
-                    <el-input-number
-                      v-model="formContent.sageTimeOpTimes"
-                      :step="1"
-                      step-strictly
-                      :precision="0"
-                      :min="1"
-                      :disabled="!formContent.isSageTimeEnabled"
-                      controls-position="right"
-                      @change="
-                        (v) => {
-                          gtagRenderer('sage_t_op_times_changed', { v })
-                        }
-                      "
-                    />
-                  </el-form-item>
-                  次时，暂停运行
-                  <el-form-item mb0 inline-block prop="sageTimePauseMinute">
-                    <el-input-number
-                      v-model="formContent.sageTimePauseMinute"
-                      :step="0.5"
-                      step-strictly
-                      :precision="1"
-                      :min="0"
-                      :disabled="!formContent.isSageTimeEnabled"
-                      controls-position="right"
-                      @change="
-                        (v) => {
-                          gtagRenderer('sage_t_pause_minute_changed', { v })
-                        }
-                      "
-                    />
-                  </el-form-item>
-                  分钟
-
+                  <el-input-number v-model="formContent.sageTimeOpTimes" :min="1" :precision="0" :disabled="restMode !== 'operations'" controls-position="right" /> 次，暂停休息
+                  <el-input-number v-model="formContent.sageTimePauseMinute" :min="0" :max="1440" :step="0.5" :precision="1" :disabled="restMode !== 'operations'" controls-position="right" /> 分钟
+                </div>
+                <div class="rest-row" :class="{ muted: restMode !== 'success' }">
+                  每成功开聊
+                  <el-input-number v-model="formContent.successfulChatRestEvery" :min="1" :max="10000" :precision="0" :disabled="restMode !== 'success'" controls-position="right" /> 次，暂停休息
+                  <el-input-number v-model="formContent.successfulChatRestMinutes" :min="0" :max="1440" :step="0.5" :precision="1" :disabled="restMode !== 'success'" controls-position="right" /> 分钟
                 </div>
               </div>
             </div>
+            <div class="settings-subtitle schedule-subtitle">定时自动运行</div>
+            <AutoChatSchedule ref="scheduleRef" />
           </el-card>
           <el-card class="config-section">
             <el-form-item class="job-source-form-item" prop="__jobSourceList">
               <div w-full>
                 <div ref="jobSourceFormItemSectionEl" class="section-title">
-                  <div>
-                    职位来源
-                  </div>
+                  职位查找来源（支持拖拽调整先后顺序）
                 </div>
                 <JobSourceDragOrderer
                   v-model="formContent.__jobSourceList"
@@ -90,546 +55,277 @@
             <el-form-item data-setting="filters" tabindex="-1" prop="filter" mt18px mb0px w-full>
               <div flex-1>
                 <div class="section-title">
-                  职位筛选条件
+                  页面筛选条件组合
                   <el-tooltip placement="top" :enterable="false">
                     <template #content><div class="filter-help-content">
-                      <p v-if="formContent.combineRecommendJobFilterType === CombineRecommendJobFilterType.STATIC_COMBINE">固定组合：按表格从上到下，一行一组，把这一行的城市、薪资、经验、学历、行业和规模设置到 BOSS 页面，再检查该组返回的岗位。</p>
+                      <p v-if="formContent.combineRecommendJobFilterType === CombineRecommendJobFilterType.STATIC_COMBINE">固定组合：按表格从上到下一行一组，依次设置城市、薪资、经验、学历、行业与规模并查找岗位。</p>
                       <template v-else>
-                        <p>自由组合：同一栏能多选的选项一起勾到 BOSS 页面，不拆成单项或子组合；只有城市、薪资这些单选栏按所选值交叉分组。</p>
-                        <p>例如规模选三档，就同时勾选三档，只查一组；若再选两个薪资档，就查两组，每组仍同时勾选那三档规模。再选两座城市，则一共查四组。</p>
-                        <p>不会额外生成不限组；某一栏未选时，该栏保持不限。薪资、城市按 BOSS 的单选方式分别设置，经验、学历、规模一起多选，行业最多同时选三项。</p>
+                        <p>自由组合：支持多选的筛选项（经验、学历、规模、行业）会合并勾选在同一组；仅城市、薪资这类单选项会逐项交叉分组查询。</p>
+                        <p>未勾选的维度保持“不限”，不会额外生成多余的空白组合。</p>
                       </template>
-                      <p>同一字段多选表示满足其中任一项；一组内不同字段共同生效。每组中的岗位还要通过已启用的公司、正则、活跃度和 AI 筛选。求职类型在每一组单独设置。</p>
+                      <p>每组返回的岗位仍需通过已启用的公司名单、正则规则、BOSS 活跃度与 AI 筛选后才会发起沟通。</p>
                     </div></template>
-                    <el-button class="setting-help" link aria-label="职位筛选条件说明" @click.stop><el-icon><QuestionFilled /></el-icon></el-button>
+                    <button type="button" class="ggr-help-btn" aria-label="职位筛选条件说明" @click.stop><QuestionFilled /></button>
                   </el-tooltip>
                 </div>
                 <div>
-                  <div>
-                    <template v-if="formContent.combineRecommendJobFilterType === CombineRecommendJobFilterType.STATIC_COMBINE">
-                    <div font-size-12px>求职类型</div>
-                    <el-select data-setting="employmentType" v-model="formContent.expectEmploymentType" w-160px>
-                      <el-option
-                        v-for="op in conditions.jobTypeList"
-                        :key="op.code"
-                        :value="op.code"
-                        :label="op.name"
-                      />
-                    </el-select>
-                    </template>
-                    <div font-size-12px mt8px>筛选条件遍历方式</div>
-                    <el-select
-                      v-model="formContent.combineRecommendJobFilterType"
-                      w-320px
-                      @change="
-                        (v) => {
-                          gtagRenderer('crjf_type_changed', { v })
-                        }
-                      "
-                    >
-                      <el-option
-                        v-for="op in combineRecommendJobFilterTypeOptions"
-                        :key="op.value"
-                        :value="op.value"
-                        :label="op.name"
-                        >{{ op.name }}</el-option
+                  <div class="filter-top-bar">
+                    <div v-if="formContent.combineRecommendJobFilterType === CombineRecommendJobFilterType.STATIC_COMBINE" class="filter-top-field">
+                      <div class="sub-field-label">求职类型</div>
+                      <el-select data-setting="employmentType" v-model="formContent.expectEmploymentType" style="width: 180px">
+                        <el-option
+                          v-for="op in conditions.jobTypeList"
+                          :key="op.code"
+                          :value="op.code"
+                          :label="op.name"
+                        />
+                      </el-select>
+                    </div>
+                    <div class="filter-top-field">
+                      <div class="sub-field-label">条件组合方式</div>
+                      <el-select
+                        v-model="formContent.combineRecommendJobFilterType"
+                        style="width: 340px; max-width: 100%"
+                        @change="
+                          (v) => {
+                            gtagRenderer('crjf_type_changed', { v })
+                          }
+                        "
                       >
-                    </el-select>
+                        <el-option
+                          v-for="op in combineRecommendJobFilterTypeOptions"
+                          :key="op.value"
+                          :value="op.value"
+                          :label="op.name"
+                        />
+                      </el-select>
+                    </div>
+                    <div class="combo-badge">
+                      <span>当前共 <strong>{{ currentAnyCombineRecommendJobFilterCombinationCount.toLocaleString() }}</strong> 组查询条件</span>
+                      <span
+                        v-if="currentAnyCombineRecommendJobFilterCombinationCount >= 5"
+                        class="warn-inline"
+                      >（组合较多，全部查完耗时较长）</span>
+                    </div>
                   </div>
                   <div
                     v-if="
                       formContent.combineRecommendJobFilterType ===
                       CombineRecommendJobFilterType.STATIC_COMBINE
                     "
-                    mt8px
+                    mt10px
                   >
                     <StaticCombineBossRecommendFilter
                       v-model="formContent.staticCombineRecommendJobFilterConditions"
                     />
                   </div>
-                  <div v-else mt8px>
+                  <div v-else mt10px>
                     <AnyCombineBossRecommendFilter
                       v-model="formContent.anyCombineRecommendJobFilter"
                     >
                       <template #employment-type>
-                    <el-select data-setting="employmentType" v-model="formContent.expectEmploymentType" style="width: 100%">
-                      <el-option
-                        v-for="op in conditions.jobTypeList"
-                        :key="op.code"
-                        :value="op.code"
-                        :label="op.name"
-                      />
-                    </el-select>
+                        <el-select data-setting="employmentType" v-model="formContent.expectEmploymentType" style="width: 100%">
+                          <el-option
+                            v-for="op in conditions.jobTypeList"
+                            :key="op.code"
+                            :value="op.code"
+                            :label="op.name"
+                          />
+                        </el-select>
                       </template>
                     </AnyCombineBossRecommendFilter>
                   </div>
-                </div>
-                <div font-size-12px>
-                  当前组合条件数：{{
-                    currentAnyCombineRecommendJobFilterCombinationCount.toLocaleString()
-                  }}
-                  <span
-                    v-if="currentAnyCombineRecommendJobFilterCombinationCount >= 5"
-                    class="color-orange"
-                    >组合较多，遍历耗时会增加</span
-                  >
                 </div>
               </div>
             </el-form-item>
             <el-collapse class="local-check-strategies">
               <el-collapse-item name="exact-checks">
-                <template #title>职位详情复核（可选）
+                <template #title>职位详情二次复核（可选）
                   <el-tooltip placement="top" :enterable="false">
-                    <template #content><div class="filter-help-content">这里是在读取岗位后，再按你填写的城市或具体薪资范围复核，不会操作上面的 BOSS 页面筛选。未选择城市、未填写薪资上下限时，这两项不参与复核。通常只使用上面的职位筛选条件即可；只有需要额外把关时才填写。页面筛选和这里的复核都启用时，岗位必须同时通过。</div></template>
-                    <el-button class="setting-help" link aria-label="职位详情复核说明" @click.stop><el-icon><QuestionFilled /></el-icon></el-button>
+                    <template #content><div class="filter-help-content">点开职位详情后，再按下方指定的城市或精确薪资区间复核把关（不影响上方 BOSS 页面筛选控件）。留空表示不额外限制。</div></template>
+                    <button type="button" class="ggr-help-btn" aria-label="职位详情复核说明" @click.stop><QuestionFilled /></button>
                   </el-tooltip>
                 </template>
                 <div class="exact-filter-fields">
                   <el-form-item>
-                    <template #label>职位城市复核
+                    <template #label>复核工作城市
                       <el-tooltip placement="top" :enterable="false">
-                        <template #content><div class="filter-help-content">按岗位实际城市再核对一次，只保留所选城市之一的岗位。例如页面查全国，这里只选上海，就只保留上海岗位；页面查北京，这里只选上海，通常会没有合适结果。留空表示不增加这道限制，不会把页面城市改成全国。</div></template>
-                        <el-button class="setting-help" link aria-label="职位城市复核说明" @click.stop><el-icon><QuestionFilled /></el-icon></el-button>
+                        <template #content><div class="filter-help-content">按岗位详情标注的实际城市再核对一次，仅保留所选城市。留空则不限制。</div></template>
+                        <button type="button" class="ggr-help-btn" aria-label="职位城市复核说明" @click.stop><QuestionFilled /></button>
                       </el-tooltip>
                     </template>
-                    <CityChooser v-model="formContent.expectCityList">
-                      <template #default="{ modelValue, showDialog, clearValue }">
-                        <span>{{ Array.isArray(modelValue) ? modelValue.join('、') || '不限' : modelValue || '不限' }}</span>
-                        <el-button size="small" @click="showDialog">选择</el-button>
-                        <el-button v-if="modelValue?.length" size="small" @click="clearValue">清空</el-button>
-                      </template>
-                    </CityChooser>
+                    <div class="city-picker-inline">
+                      <CityChooser v-model="formContent.expectCityList">
+                        <template #default="{ modelValue, showDialog, clearValue }">
+                          <el-tag type="info" effect="plain">{{ Array.isArray(modelValue) ? modelValue.join('、') || '不限城市' : modelValue || '不限城市' }}</el-tag>
+                          <el-button size="small" @click="showDialog">选择城市</el-button>
+                          <el-button v-if="modelValue?.length" size="small" @click="clearValue">清空</el-button>
+                        </template>
+                      </CityChooser>
+                    </div>
                   </el-form-item>
                   <el-form-item>
                     <template #label>精确薪资范围
                       <el-tooltip placement="top" :enterable="false">
-                        <template #content><div class="filter-help-content">BOSS 页面使用固定薪资档位；这里可以填具体月薪（千元）或年薪总包（万元）。岗位薪资区间与填写范围有重叠即可通过。上下限都不填表示不额外限制；填写后，无可比较月薪的日薪或未公开薪资岗位不会通过这项复核。</div></template>
-                        <el-button class="setting-help" link aria-label="精确薪资范围说明" @click.stop><el-icon><QuestionFilled /></el-icon></el-button>
+                        <template #content><div class="filter-help-content">支持填写具体月薪（K）或年薪总包（W），岗位薪资范围与所填区间有交集即视为通过；上下限均留空则不限制。</div></template>
+                        <button type="button" class="ggr-help-btn" aria-label="精确薪资范围说明" @click.stop><QuestionFilled /></button>
                       </el-tooltip>
                     </template>
                     <el-select v-model="formContent.expectSalaryCalculateWay" @change="handleExpectSalaryCalculateWayChanged">
                       <el-option v-for="option in expectSalaryCalculateWayOption" :key="option.value" :label="option.name" :value="option.value" />
                     </el-select>
                     <div class="exact-salary-range">
-                      <el-input-number v-model="formContent.expectSalaryLow" :min="0" :step="0.25" controls-position="right" placeholder="不限下限" />
+                      <el-input-number v-model="formContent.expectSalaryLow" :min="0" :step="0.25" controls-position="right" placeholder="最低" />
                       <span>—</span>
-                      <el-input-number v-model="formContent.expectSalaryHigh" :min="0" :step="0.25" controls-position="right" placeholder="不限上限" />
+                      <el-input-number v-model="formContent.expectSalaryHigh" :min="0" :step="0.25" controls-position="right" placeholder="最高" />
                     </div>
                   </el-form-item>
                 </div>
               </el-collapse-item>
             </el-collapse>
             <el-collapse v-if="localCityCondition.length || isShowSalaryMarkAsNotSuitStrategy || formContent.expectWorkExpList?.length" class="local-check-strategies">
-              <el-collapse-item title="不匹配处理策略" name="local-check-strategies">
-                <div v-if="localCityCondition.length">
-                  <p>现有本地工作地条件：{{ localCityCondition.join('、') }}</p>
-                  <el-form-item
-                    mb10px
-                    :style="{
-                      width: '100%'
-                    }"
-                  >
-                    <div font-size-12px>当前职位工作地与选择的工作地不匹配时：</div>
+              <el-collapse-item title="复核不匹配时的处理方式" name="local-check-strategies">
+                <div v-if="localCityCondition.length" class="strategy-group">
+                  <p class="strategy-caption">已选复核城市：{{ localCityCondition.join('、') }}</p>
+                  <el-form-item mb10px style="width: 100%">
+                    <div class="sub-field-label">岗位城市不匹配时：</div>
                     <el-select
                       v-model="formContent.expectCityNotMatchStrategy"
-                      @change="
-                        (value) => gtagRenderer('expect_city_not_match_strategy_changed', { value })
-                      "
+                      @change="(value) => gtagRenderer('expect_city_not_match_strategy_changed', { value })"
                     >
                       <el-option
                         v-for="op in strategyOptionWhenCurrentJobNotMatch"
                         :key="op.value"
                         :label="op.name"
                         :value="op.value"
-                        >{{ op.name }}</el-option
-                      >
+                      />
                     </el-select>
                   </el-form-item>
                   <el-form-item
-                    v-if="
-                      [
-                        MarkAsNotSuitOp.MARK_AS_NOT_SUIT_ON_BOSS,
-                        MarkAsNotSuitOp.MARK_AS_NOT_SUIT_ON_LOCAL
-                      ].includes(formContent.expectCityNotMatchStrategy)
-                    "
+                    v-if="[MarkAsNotSuitOp.MARK_AS_NOT_SUIT_ON_BOSS, MarkAsNotSuitOp.MARK_AS_NOT_SUIT_ON_LOCAL].includes(formContent.expectCityNotMatchStrategy)"
                     mb0
-                    :style="{
-                      width: '100%'
-                    }"
+                    style="width: 100%"
                   >
-                    <div font-size-12px>标记不合适针对的职位范围：</div>
+                    <div class="sub-field-label">执行“标记不合适”的职位范围：</div>
                     <el-select
                       v-model="formContent.strategyScopeOptionWhenMarkJobCityNotMatch"
-                      @change="
-                        (value) => gtagRenderer('strategy_scope_option_wmjcnm_changed', { value })
-                      "
+                      @change="(value) => gtagRenderer('strategy_scope_option_wmjcnm_changed', { value })"
                     >
                       <el-option
                         v-for="op in strategyScopeOptionWhenMarkJobNotMatch"
                         :key="op.value"
                         :label="op.name"
                         :value="op.value"
-                        >{{ op.name }}</el-option
-                      >
+                      />
                     </el-select>
                   </el-form-item>
                 </div>
-                <div v-if="isShowSalaryMarkAsNotSuitStrategy">
-                  <el-form-item
-                    mb10px
-                    :style="{
-                      width: '100%'
-                    }"
-                  >
-                    <div font-size-12px>当前职位薪资{{ salaryMarkAsNotSuitLabelText }}时：</div>
+                <div v-if="isShowSalaryMarkAsNotSuitStrategy" class="strategy-group">
+                  <el-form-item mb10px style="width: 100%">
+                    <div class="sub-field-label">岗位薪资{{ salaryMarkAsNotSuitLabelText }}时：</div>
                     <el-select
                       v-model="formContent.expectSalaryNotMatchStrategy"
-                      @change="
-                        (value) =>
-                          gtagRenderer('expect_salary_not_match_strategy_changed', { value })
-                      "
+                      @change="(value) => gtagRenderer('expect_salary_not_match_strategy_changed', { value })"
                     >
                       <el-option
                         v-for="op in strategyOptionWhenCurrentJobNotMatch"
                         :key="op.value"
                         :label="op.name"
                         :value="op.value"
-                        >{{ op.name }}</el-option
-                      >
+                      />
                     </el-select>
                   </el-form-item>
                   <el-form-item
-                    v-if="
-                      [
-                        MarkAsNotSuitOp.MARK_AS_NOT_SUIT_ON_BOSS,
-                        MarkAsNotSuitOp.MARK_AS_NOT_SUIT_ON_LOCAL
-                      ].includes(formContent.expectSalaryNotMatchStrategy)
-                    "
+                    v-if="[MarkAsNotSuitOp.MARK_AS_NOT_SUIT_ON_BOSS, MarkAsNotSuitOp.MARK_AS_NOT_SUIT_ON_LOCAL].includes(formContent.expectSalaryNotMatchStrategy)"
                     mb0
-                    :style="{
-                      width: '100%'
-                    }"
+                    style="width: 100%"
                   >
-                    <div font-size-12px>标记不合适针对的职位范围：</div>
+                    <div class="sub-field-label">执行“标记不合适”的职位范围：</div>
                     <el-select
                       v-model="formContent.strategyScopeOptionWhenMarkSalaryNotMatch"
-                      @change="
-                        (value) => gtagRenderer('strategy_scope_option_wmjsnm_changed', { value })
-                      "
+                      @change="(value) => gtagRenderer('strategy_scope_option_wmjsnm_changed', { value })"
                     >
                       <el-option
                         v-for="op in strategyScopeOptionWhenMarkJobNotMatch"
                         :key="op.value"
                         :label="op.name"
                         :value="op.value"
-                        >{{ op.name }}</el-option
-                      >
+                      />
                     </el-select>
                   </el-form-item>
                 </div>
-                <div v-if="formContent.expectWorkExpList?.length">
-                  <p>现有本地经验条件：{{ formContent.expectWorkExpList.join('、') }}</p>
-                  <el-form-item
-                    mb10px
-                    :style="{
-                      width: '100%'
-                    }"
-                  >
-                    <div font-size-12px>当前工作经验不匹配时：</div>
+                <div v-if="formContent.expectWorkExpList?.length" class="strategy-group">
+                  <p class="strategy-caption">已选经验要求：{{ formContent.expectWorkExpList.join('、') }}</p>
+                  <el-form-item mb10px style="width: 100%">
+                    <div class="sub-field-label">工作经验不匹配时：</div>
                     <el-select
                       v-model="formContent.expectWorkExpNotMatchStrategy"
-                      @change="
-                        (value) => gtagRenderer('expect_we_not_match_strategy_changed', { value })
-                      "
+                      @change="(value) => gtagRenderer('expect_we_not_match_strategy_changed', { value })"
                     >
                       <el-option
                         v-for="op in strategyOptionWhenCurrentJobNotMatch"
                         :key="op.value"
                         :label="op.name"
                         :value="op.value"
-                        >{{ op.name }}</el-option
-                      >
+                      />
                     </el-select>
                   </el-form-item>
                   <el-form-item
-                    v-if="
-                      [
-                        MarkAsNotSuitOp.MARK_AS_NOT_SUIT_ON_BOSS,
-                        MarkAsNotSuitOp.MARK_AS_NOT_SUIT_ON_LOCAL
-                      ].includes(formContent.expectWorkExpNotMatchStrategy)
-                    "
+                    v-if="[MarkAsNotSuitOp.MARK_AS_NOT_SUIT_ON_BOSS, MarkAsNotSuitOp.MARK_AS_NOT_SUIT_ON_LOCAL].includes(formContent.expectWorkExpNotMatchStrategy)"
                     mb0
-                    :style="{
-                      width: '100%'
-                    }"
+                    style="width: 100%"
                   >
-                    <div font-size-12px>标记不合适针对的职位范围：</div>
+                    <div class="sub-field-label">执行“标记不合适”的职位范围：</div>
                     <el-select
                       v-model="formContent.strategyScopeOptionWhenMarkJobWorkExpNotMatch"
-                      @change="
-                        (value) => gtagRenderer('strategy_scope_option_wmjwenm_changed', { value })
-                      "
+                      @change="(value) => gtagRenderer('strategy_scope_option_wmjwenm_changed', { value })"
                     >
                       <el-option
                         v-for="op in strategyScopeOptionWhenMarkJobNotMatch"
                         :key="op.value"
                         :label="op.name"
                         :value="op.value"
-                        >{{ op.name }}</el-option
-                      >
+                      />
                     </el-select>
                   </el-form-item>
                 </div>
               </el-collapse-item>
             </el-collapse>
           </el-card>
-          <!-- <el-form-item
-          label="钉钉机器人 AccessToken（用于记录开聊，请勿使用公司内部群）"
-          prop="dingtalkRobotAccessToken"
-        >
-          <el-input v-model="formContent.dingtalkRobotAccessToken" />
-        </el-form-item> -->
           <el-card class="config-section">
-            <el-form-item mb0>
-              <div class="section-title">职位列表筛选条件 <JobFilterHelp kind="jobs" /></div>
-            </el-form-item>
-            <el-form-item
-              :key="!formContent.fieldsForUseCommonConfig.expectCompanies"
-              :prop="
-                !formContent.fieldsForUseCommonConfig.expectCompanies
-                  ? 'expectCompanies'
-                  : undefined
-              "
-              mb0
-            >
-              <div
-                font-size-14px
-                flex
-                mb6px
-                :style="{
-                  justifyContent: 'space-between',
-                  alignItems: 'baseline',
-                  width: '100%',
-                  lineHeight: '1.25em'
-                }"
-              >
-                <div>
-                  期望投递公司 <JobFilterHelp kind="expected" />
-                </div>
-                <el-dropdown
-                  v-if="!formContent.fieldsForUseCommonConfig.expectCompanies"
-                  @command="handleExpectCompanyTemplateClicked"
-                >
-                  <el-button size="small"
-                    >公司列表模板 <el-icon class="el-icon--right"><arrow-down /></el-icon
-                  ></el-button>
-                  <template #dropdown>
-                    <el-dropdown-menu>
-                      <el-dropdown-item
-                        v-for="item in expectCompanyTemplateList"
-                        :key="item.name"
-                        :command="item"
-                        >{{ item.name }}</el-dropdown-item
-                      >
-                    </el-dropdown-menu>
-                  </template>
-                </el-dropdown>
-              </div>
-              <div w-full>
-                <div flex flex-items-center>
-                  <el-checkbox v-model="formContent.fieldsForUseCommonConfig.expectCompanies"
-                    >使用在“公共职位筛选条件”中设置的值</el-checkbox
-                  >
-                  <el-button
-                    v-if="formContent.fieldsForUseCommonConfig.expectCompanies"
-                    size="small"
-                    ml-10px
-                    @click="handleClickConfigCommonJobCondition({ entry: 'expect-company-field' })"
-                    >编辑公共职位筛选条件</el-button
-                  >
-                  <el-button
-                    v-else
-                    size="small"
-                    ml-10px
-                    @click="fillCommonConfigField('expectCompanies')"
-                    >填入公共职位筛选条件的值</el-button
-                  >
-                </div>
-                <el-input
-                  v-if="!formContent.fieldsForUseCommonConfig.expectCompanies"
-                  v-model="formContent.expectCompanies"
-                  :autosize="{ minRows: 4 }"
-                  max-h-8lh
-                  type="textarea"
-                  placeholder="置空表示“不限公司，任意公司都可以投递”"
-                  @blur="
-                    formContent.expectCompanies = normalizeCommaSplittedStr(
-                      formContent.expectCompanies
-                    )
-                  "
-                />
-                <el-input
-                  v-else
-                  disabled
-                  inert
-                  :model-value="commonJobConditionConfig.expectCompanies ?? ''"
-                  :autosize="{ minRows: 4 }"
-                  max-h-8lh
-                  type="textarea"
-                  placeholder="置空表示“不限公司，任意公司都可以投递”"
-                />
-              </div>
-            </el-form-item>
-            <div class="h-1px bg-#f0f0f0" mt16px mb8px />
-            <div
-              ref="blockCompanyNameRegExpSectionEl"
-              font-size-14px
-              flex
-              :style="{
-                justifyContent: 'space-between',
-                alignItems: 'baseline',
-                width: '100%',
-                lineHeight: '1.25em'
-              }"
-            >
-              <div mb6px>
-                不期望投递公司<b color-orange>正则</b> <JobFilterHelp kind="blocked" />
-              </div>
-              <el-dropdown
-                v-if="!formContent.fieldsForUseCommonConfig.blockCompanyNameRegExpStr"
-                @command="handleBlockCompanyNameRegExpTemplateClicked"
-              >
-                <el-button size="small"
-                  >公司列表模板 <el-icon class="el-icon--right"><arrow-down /></el-icon
-                ></el-button>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item
-                      v-for="item in blockCompanyNameRegExpTemplateList"
-                      :key="item.name"
-                      :command="item"
-                      >{{ item.name }}</el-dropdown-item
-                    >
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
+            <div class="section-title">公司过滤与 BOSS 活跃度 <JobFilterHelp kind="jobs" /></div>
+            <div class="company-head-row">
+              <span>期望公司与屏蔽公司统一在公共筛选规则中设置</span>
+              <el-button size="small" @click="handleClickConfigCommonJobCondition({ entry: 'expect-company-field' })">前往设置</el-button>
             </div>
-            <div
-              class="block-company-filter-wrap"
-              :style="{
-                display: 'flex',
-                justifyContent: 'space-between',
-                gap: '10px'
-              }"
-            >
-              <div w-full>
-                <div flex flex-items-center>
-                  <el-checkbox
-                    v-model="formContent.fieldsForUseCommonConfig.blockCompanyNameRegExpStr"
-                    >使用在“公共职位筛选条件”中设置的值</el-checkbox
-                  >
-                  <el-button
-                    v-if="formContent.fieldsForUseCommonConfig.blockCompanyNameRegExpStr"
-                    size="small"
-                    ml-10px
-                    @click="
-                      handleClickConfigCommonJobCondition({
-                        entry: 'block-company-name-reg-exp-field'
-                      })
-                    "
-                    >编辑公共职位筛选条件</el-button
-                  >
-                  <el-button
-                    v-else
-                    size="small"
-                    ml-10px
-                    @click="fillCommonConfigField('blockCompanyNameRegExpStr')"
-                    >填入公共职位筛选条件的值</el-button
-                  >
-                </div>
-                <el-form-item
-                  :key="!formContent.fieldsForUseCommonConfig.blockCompanyNameRegExpStr"
-                  :prop="
-                    !formContent.fieldsForUseCommonConfig.blockCompanyNameRegExpStr
-                      ? 'blockCompanyNameRegExpStr'
-                      : undefined
-                  "
-                  mb0
-                  w-full
-                >
-                  <el-input
-                    v-if="!formContent.fieldsForUseCommonConfig.blockCompanyNameRegExpStr"
-                    v-model="formContent.blockCompanyNameRegExpStr"
-                    :autosize="{ minRows: 4 }"
-                    max-h-8lh
-                    type="textarea"
-                    placeholder="置空表示“不限公司，任意公司都不会被标记为不合适”"
-                    @blur="
-                      formContent.blockCompanyNameRegExpStr =
-                        formContent.blockCompanyNameRegExpStr?.trim() ?? ''
-                    "
-                  />
-                  <el-input
-                    v-else
-                    inert
-                    disabled
-                    :model-value="commonJobConditionConfig.blockCompanyNameRegExpStr"
-                    :autosize="{ minRows: 4 }"
-                    max-h-8lh
-                    type="textarea"
-                    placeholder="置空表示“不限公司，任意公司都不会被标记为不合适”"
-                  />
-                </el-form-item>
-              </div>
+            <div class="block-company-filter-wrap">
               <div
-                :style="{
-                  width: '400px',
-                  paddingLeft: '10px',
-                  flex: `0 0 auto`,
-                  ...((!formContent.fieldsForUseCommonConfig.blockCompanyNameRegExpStr
-                    ? formContent
-                    : commonJobConditionConfig
-                  ).blockCompanyNameRegExpStr?.length
-                    ? {
-                        borderLeft: '1px solid #f0f0f0'
-                      }
-                    : {
-                        borderLeft: '1px solid transparent',
-                        visibility: 'hidden',
-                        opacity: 0
-                      })
-                }"
+                v-if="(!formContent.fieldsForUseCommonConfig.blockCompanyNameRegExpStr ? formContent : commonJobConditionConfig).blockCompanyNameRegExpStr?.length"
+                class="block-company-strategy"
               >
-                <el-form-item
-                  mb10px
-                  :style="{
-                    width: '100%'
-                  }"
-                >
-                  <div font-size-12px>当前职位对应公司名称与不期望投递公司正则匹配时：</div>
+                <el-form-item mb0 style="width: 100%">
+                  <div class="sub-field-label">命中屏蔽公司时：</div>
                   <el-select
                     v-model="formContent.blockCompanyNameRegMatchStrategy"
-                    @change="
-                      (value) => gtagRenderer('block_company_match_strategy_changed', { value })
-                    "
+                    @change="(value) => gtagRenderer('block_company_match_strategy_changed', { value })"
                   >
                     <el-option
                       v-for="op in strategyOptionWhenCurrentJobNotMatch"
                       :key="op.value"
                       :label="op.name"
                       :value="op.value"
-                      >{{ op.name }}</el-option
-                    >
+                    />
                   </el-select>
                 </el-form-item>
               </div>
             </div>
 
-            <div class="h-1px bg-#f0f0f0" mt16px mb16px />
-            <div mt16px>
-              <div data-setting="activity" tabindex="-1" mb0 lh-2em font-size-14px>活跃度</div>
+            <div class="soft-divider" />
+
+            <div>
+              <div data-setting="activity" tabindex="-1" class="sub-section-title mb8">BOSS 活跃度要求</div>
               <el-form-item>
-                <div font-size-12px>允许的 BOSS 活跃度（及更新状态）：</div>
+                <div class="sub-field-label">要求 BOSS 最近活跃时间不早于：</div>
                 <el-slider
                   v-model="formContent.markAsNotActiveSelectedTimeRange"
                   :marks="activityMarks"
@@ -643,17 +339,9 @@
                   @change="(value) => gtagRenderer('job_not_active_time_range_changed', { value })"
                 />
               </el-form-item>
-              <div
-                :style="{
-                  display: 'grid',
-                  gridTemplateColumns: '1.25fr 0.75fr',
-                  gap: '10px 0',
-                  width: '100%',
-                  alignItems: 'end'
-                }"
-              >
+              <div style="max-width: 480px">
                 <el-form-item v-if="formContent.markAsNotActiveSelectedTimeRange > 0" mb0>
-                  <div font-size-12px>BOSS 活跃度不满足上述要求时：</div>
+                  <div class="sub-field-label">活跃度不达标时：</div>
                   <el-select
                     v-model="formContent.jobNotActiveStrategy"
                     @change="(value) => gtagRenderer('job_not_active_strategy_changed', { value })"
@@ -663,8 +351,7 @@
                       :key="op.value"
                       :label="op.name"
                       :value="op.value"
-                      >{{ op.name }}</el-option
-                    >
+                    />
                   </el-select>
                 </el-form-item>
               </div>
@@ -673,18 +360,9 @@
         </el-form>
       </div>
       <div class="settings-footer">
-        <div
-          :style="{
-            display: 'flex',
-            justifyContent: 'end',
-            maxWidth: '1000px',
-            margin: '0 auto',
-            paddingLeft: '24px',
-            paddingRight: '24px'
-          }"
-        >
-          <el-button @click="handleSave">保存配置</el-button>
-          <el-button type="primary" @click="handleSubmit"> 保存并开始开聊 </el-button>
+        <div class="footer-inner">
+          <span class="ggr-status-text" role="status">{{ autosave.status.value }}</span>
+          <el-button type="primary" @click="handleSubmit">开始自动开聊</el-button>
         </div>
       </div>
     </div>
@@ -729,9 +407,12 @@
 </template>
 
 <script setup lang="ts">
+import { useAutoSave } from '@renderer/composables/useAutoSave'
+import AutoChatSchedule from '@renderer/features/AutoChatSchedule.vue'
+import { normalizeChatRestConfig } from '@geekgeekrun/utils/successful-chat-rest.mjs'
 import { computed, onBeforeUnmount, ref, watch, onUnmounted, onMounted, onActivated, nextTick } from 'vue'
 import { ElForm, ElMessage } from 'element-plus'
-import { ArrowDown, QuestionFilled } from '@element-plus/icons-vue'
+import { QuestionFilled } from '@element-plus/icons-vue'
 import { useRouter, useRoute } from 'vue-router'
 import JobFilterHelp from '@renderer/features/JobFilterHelp/index.vue'
 import CityChooser from './components/CityChooser.vue'
@@ -765,12 +446,7 @@ import {
   getRuleOfExpectJobNameRegExpStr,
   getRuleOfExpectJobDescRegExpStr,
   getRuleOfBlockCompanyNameRegExpStr,
-  expectCompanyTemplateList,
-  blockCompanyNameRegExpTemplateList,
-  getHandlerForExpectCompanyTemplateClicked,
-  getHandlerForBlockCompanyNameRegExpTemplateClicked,
-  getRuleOfExpectJobTypeRegExpStr,
-  normalizeCommaSplittedStr
+  getRuleOfExpectJobTypeRegExpStr
 } from './common'
 const { ipcRenderer } = window.electron
 const gtagRenderer = (name, params?: object) => {
@@ -843,12 +519,28 @@ const formContent = ref<FilterForm>({
       enabled: true
     }
   ]),
+  successfulChatRestEnabled: false,
+  successfulChatRestEvery: 20,
+  successfulChatRestMinutes: 0,
   isSageTimeEnabled: true,
   sageTimeOpTimes: 100,
   sageTimePauseMinute: 15,
   blockCompanyNameRegExpStr: '',
   blockCompanyNameRegMatchStrategy: MarkAsNotSuitOp.NO_OP,
   fieldsForUseCommonConfig: {}
+})
+
+const restMode = computed({
+  get: () => {
+    const config = normalizeChatRestConfig(formContent.value)
+    return config.successfulChatRestEnabled ? 'success' : config.isSageTimeEnabled ? 'operations' : 'off'
+  },
+  set: (mode: string) => {
+    formContent.value.successfulChatRestEnabled = mode === 'success'
+    formContent.value.isSageTimeEnabled = mode === 'operations'
+    formContent.value.successfulChatRestMinutes = mode === 'success' ? formContent.value.successfulChatRestMinutes || 5 : 0
+    formContent.value.sageTimePauseMinute = mode === 'operations' ? formContent.value.sageTimePauseMinute || 15 : 0
+  }
 })
 
 const currentAnyCombineRecommendJobFilterCombinationCount = computed(() => {
@@ -882,7 +574,8 @@ const unwatchAnyCombineRecommendJobFilter = ref<null | (() => void)>(null)
 onBeforeUnmount(() => {
   unwatchAnyCombineRecommendJobFilter.value?.()
 })
-electron.ipcRenderer.invoke('fetch-config-file-content').then((res) => {
+let loaded = false
+electron.ipcRenderer.invoke('fetch-config-file-content').then(async (res) => {
   console.log(res)
   formContent.value.dingtalkRobotAccessToken = res.config['dingtalk.json']['groupRobotAccessToken']
   formContent.value.expectCompanies = res.config['target-company-list.json'].join(',')
@@ -983,6 +676,9 @@ electron.ipcRenderer.invoke('fetch-config-file-content').then((res) => {
   formContent.value.__jobSourceList = formatJobSourceConfigToFormValue(
     res.config['boss.json'].jobSourceList || []
   )
+  formContent.value.successfulChatRestEnabled = res.config['boss.json'].successfulChatRestEnabled ?? false
+  formContent.value.successfulChatRestEvery = res.config['boss.json'].successfulChatRestEvery ?? 20
+  formContent.value.successfulChatRestMinutes = res.config['boss.json'].successfulChatRestMinutes ?? 5
   formContent.value.isSageTimeEnabled = res.config['boss.json'].isSageTimeEnabled ?? true
   formContent.value.sageTimeOpTimes =
     isNaN(parseInt(res.config['boss.json'].sageTimeOpTimes)) ||
@@ -994,6 +690,7 @@ electron.ipcRenderer.invoke('fetch-config-file-content').then((res) => {
     parseFloat(res.config['boss.json'].sageTimePauseMinute) < 0
       ? 15
       : parseFloat(res.config['boss.json'].sageTimePauseMinute)
+  Object.assign(formContent.value, normalizeChatRestConfig(formContent.value))
   formContent.value.blockCompanyNameRegExpStr =
     res.config['boss.json'].blockCompanyNameRegExpStr?.trim() ?? ''
   formContent.value.blockCompanyNameRegMatchStrategy =
@@ -1030,6 +727,8 @@ electron.ipcRenderer.invoke('fetch-config-file-content').then((res) => {
     }
     formContent.value.fieldsForUseCommonConfig[flag] = false
   }
+  await nextTick()
+  loaded = true
   revealSetting()
 })
 
@@ -1057,7 +756,7 @@ const formRules: import('element-plus').FormRules = {
         return
       }
       if (value.every((it) => !it.enabled)) {
-        cb(new Error(`将上方任一来源设置为“启用”后才能继续`))
+        cb(new Error(`请至少启用一个职位查找来源`))
         return
       }
       const configMap: Record<string, JobSourceConfig> = {}
@@ -1073,7 +772,7 @@ const formRules: import('element-plus').FormRules = {
         configMap.search.enabled &&
         !configMap.search?.children?.some((it) => it.enabled && it.keyword?.trim())
       ) {
-        cb(new Error(`将上方任一来源设置为“启用”后才能继续`))
+        cb(new Error(`请至少启用一个有效的职位来源或搜索关键词`))
         jobSourceFormItemSectionEl.value?.scrollIntoViewIfNeeded()
         return
       }
@@ -1087,7 +786,7 @@ const formRules: import('element-plus').FormRules = {
         return
       }
       if (value < 1 || isNaN(parseInt(value))) {
-        cb(new Error(`最小值为1，请重试`))
+        cb(new Error(`最少填写 1`))
         return
       }
       cb()
@@ -1100,7 +799,7 @@ const formRules: import('element-plus').FormRules = {
         return
       }
       if (value < 0 || isNaN(parseFloat(value))) {
-        cb(new Error(`最小值为0，请重试`))
+        cb(new Error(`不能小于 0`))
         return
       }
       cb()
@@ -1113,6 +812,19 @@ const formRules: import('element-plus').FormRules = {
 }
 
 const formRef = ref<InstanceType<typeof ElForm>>()
+const scheduleRef = ref<InstanceType<typeof AutoChatSchedule>>()
+async function saveConfiguration(config: Record<string, unknown>) {
+  try {
+    if (!scheduleRef.value) throw new Error('定时设置尚未加载，请稍后重试')
+    config.autoChatSchedule = scheduleRef.value.getConfig()
+    await electron.ipcRenderer.invoke('save-config-file-from-ui', JSON.stringify(config))
+    scheduleRef.value.markSaved(config.autoChatSchedule)
+    return true
+  } catch (error: any) {
+    ElMessage.error(error.message || String(error))
+    return false
+  }
+}
 const runRecordId = ref<number>()
 const runningOverlayRef = ref<InstanceType<typeof RunningOverlay>>()
 const taskManagerStore = useTaskManagerStore()
@@ -1153,18 +865,18 @@ const handleSubmit = async () => {
     await formRef.value!.validate()
   } catch (err) {
     ElMessage.error({
-      message: '表单校验失败，请检查有误的内容',
+      message: '部分设置填写有误，请检查标红项',
       grouping: true
     })
     console.log(err)
     return
   }
-  const clonedFormContent = JSON.parse(JSON.stringify(formContent.value))
+  const clonedFormContent = JSON.parse(JSON.stringify(normalizeChatRestConfig(formContent.value)))
   clonedFormContent.jobSourceList = formatJobSourceFormValueToConfig(
     clonedFormContent.__jobSourceList
   )
   delete clonedFormContent.__jobSourceList
-  await electron.ipcRenderer.invoke('save-config-file-from-ui', JSON.stringify(clonedFormContent))
+  if (!await saveConfiguration(clonedFormContent)) return
   mittBus.emit('auto-start-chat-with-boss-config-saved')
   gtagRenderer('config_saved_and_launch_auto_start_chat', {
     has_dingtalk_robot_token: !!formContent.value?.dingtalkRobotAccessToken
@@ -1180,7 +892,7 @@ const handleSubmit = async () => {
     if (err instanceof Error && err.message.includes('NEED_TO_CHECK_RUNTIME_DEPENDENCIES')) {
       gtagRenderer('gascwb_cannot_run_for_corrupt')
       ElMessage.error({
-        message: `核心组件损坏，正在尝试修复`
+        message: `运行环境需要重新检测，正在自动处理…`
       })
       router.replace('/')
     }
@@ -1193,59 +905,25 @@ const handleSubmit = async () => {
   //   query: { flow: 'geek-auto-start-chat-with-boss' }
   // }
 }
-const handleSave = async () => {
-  gtagRenderer('save_config_clicked', {
-    has_dingtalk_robot_token: !!formContent.value?.dingtalkRobotAccessToken,
-    expect_job_name_reg_exp_str: formContent.value?.expectJobNameRegExpStr,
-    expect_job_type_reg_exp_str: formContent.value?.expectJobTypeRegExpStr,
-    expect_job_desc_reg_exp_str: formContent.value?.expectJobDescRegExpStr,
-    crjf_type: formContent.value?.combineRecommendJobFilterType,
-    crjf_cc: currentAnyCombineRecommendJobFilterCombinationCount.value?.toLocaleString?.(),
-    sage_t_config: JSON.stringify({
-      isEnabled: formContent.value.isSageTimeEnabled,
-      pauseMinute: formContent.value.sageTimePauseMinute,
-      opTimes: formContent.value.sageTimeOpTimes
-    })
-  })
-  formContent.value.expectCompanies = normalizeCommaSplittedStr(formContent.value.expectCompanies)
-  try {
-    await formRef.value!.validate()
-  } catch (err) {
-    ElMessage.error({
-      message: '表单校验失败，请检查有误的内容',
-      grouping: true
-    })
-    console.log(err)
-    return
-  }
-  const clonedFormContent = JSON.parse(JSON.stringify(formContent.value))
-  clonedFormContent.jobSourceList = formatJobSourceFormValueToConfig(
-    clonedFormContent.__jobSourceList
-  )
-  delete clonedFormContent.__jobSourceList
-  await electron.ipcRenderer.invoke('save-config-file-from-ui', JSON.stringify(clonedFormContent))
+const autosave = useAutoSave(() => formContent.value, async value => {
+  const config = JSON.parse(JSON.stringify(normalizeChatRestConfig(value)))
+  config.jobSourceList = formatJobSourceFormValueToConfig(config.__jobSourceList)
+  delete config.__jobSourceList
+  await electron.ipcRenderer.invoke('save-config-file-from-ui', JSON.stringify(config))
   mittBus.emit('auto-start-chat-with-boss-config-saved')
-  ElMessage.success('配置保存成功')
-  gtagRenderer('config_saved')
-}
-
-const handleExpectCompanyTemplateClicked = getHandlerForExpectCompanyTemplateClicked({
-  gtagRenderer,
-  formContent
-})
-
+}, () => loaded)
 
 const strategyOptionWhenCurrentJobNotMatch = [
   {
-    name: '在BOSS直聘上标记不合适（推荐，这确保BOSS直聘推荐新职位来置换不合适职位）',
+    name: '在 BOSS 直聘标记“不合适”（推荐，促使平台补充新的推荐职位）',
     value: MarkAsNotSuitOp.MARK_AS_NOT_SUIT_ON_BOSS
   },
   {
-    name: '在本地数据库中标记不合适，且7天内再遇到这个职位时直接跳过',
+    name: '仅在本机记录，7 天内遇到该职位直接跳过',
     value: MarkAsNotSuitOp.MARK_AS_NOT_SUIT_ON_LOCAL
   },
   {
-    name: '仅在本次运行中记录不合适，且本次运行再遇到这个职位时直接跳过',
+    name: '仅本次运行跳过，不留记录',
     value: MarkAsNotSuitOp.NO_OP
   }
 ]
@@ -1302,9 +980,9 @@ const activityMarks = computed(() => Object.fromEntries(
 
 function formatJobSourceConfigToFormValue(config: JobSourceConfig[] = []) {
   const typeToNameKey = {
-    recommend: '推荐列表中的职位',
-    expect: '根据设置的求职期望推荐的职位',
-    search: '通过搜索找到的职位'
+    recommend: '首页推荐职位',
+    expect: '按求职期望推荐',
+    search: '关键词搜索职位'
   }
   const isInitEmpty = !config?.length
   config = config.filter((it) => Object.hasOwn(typeToNameKey, it.type))
@@ -1349,11 +1027,11 @@ function formatJobSourceFormValueToConfig(formValue: JobSourceConfig[] = []) {
 
 const combineRecommendJobFilterTypeOptions = [
   {
-    name: '自由组合：多选一起，单选分组',
+    name: '自由组合（多选合并查询，城市／薪资逐项分组）',
     value: 1
   },
   {
-    name: '使用固定组合条件进行遍历',
+    name: '按固定组合逐行查找',
     value: 2
   }
 ]
@@ -1381,12 +1059,6 @@ const handleStopButtonClick = async () => {
   }
 }
 
-const handleBlockCompanyNameRegExpTemplateClicked =
-  getHandlerForBlockCompanyNameRegExpTemplateClicked({
-    gtagRenderer,
-    formContent
-  })
-
 const commonJobConditionConfig = ref<Partial<FilterForm>>({})
 const unListenCommonJobConditionConfig = ipcRenderer.on(
   'common-job-condition-config-updated',
@@ -1412,72 +1084,57 @@ const handleClickConfigCommonJobCondition = async ({ entry }) => {
   }
 }
 
-const fillCommonConfigField = (field) => {
-  gtagRenderer('fill_common_config_field_clicked', { field })
-  let fieldsToReplace: string[] = []
-  switch (field) {
-    case 'salary': {
-      fieldsToReplace = ['expectSalaryCalculateWay', 'expectSalaryLow', 'expectSalaryHigh']
-      break
-    }
-    case 'city': {
-      fieldsToReplace = ['expectCityList']
-      break
-    }
-    case 'jobDetail': {
-      fieldsToReplace = [
-        'jobDetailRegExpMatchLogic',
-        'expectJobNameRegExpStr',
-        'expectJobTypeRegExpStr',
-        'expectJobDescRegExpStr'
-      ]
-      break
-    }
-    case 'expectCompanies': {
-      fieldsToReplace = ['expectCompanies']
-      break
-    }
-    case 'blockCompanyNameRegExpStr': {
-      fieldsToReplace = ['blockCompanyNameRegExpStr']
-      break
-    }
-  }
-  for (const field of fieldsToReplace) {
-    let sourceValue = commonJobConditionConfig.value[field]
-    if (
-      commonJobConditionConfig.value[field] &&
-      typeof commonJobConditionConfig.value[field] === 'object'
-    ) {
-      sourceValue = JSON.parse(JSON.stringify(commonJobConditionConfig.value[field]))
-    }
-    formContent.value[field] = sourceValue
-  }
-}
 </script>
 
 <style scoped lang="scss">
-.setting-help { margin-left: 6px; padding: 0; color: var(--el-text-color-secondary); vertical-align: middle; }
-.setting-help .el-icon { width: 14px; height: 14px; }
-.filter-help-content { max-width: 440px; line-height: 1.75; }
+.settings-subtitle { font-size: 13.5px; font-weight: 600; color: var(--el-text-color-primary); margin: 0 0 8px; }
+.rhythm-box { padding: 14px 16px; border-radius: 10px; background-color: var(--el-fill-color-lighter); border: 1px solid var(--el-border-color-lighter); }
+.rest-grid { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.rest-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 13px; color: var(--el-text-color-regular); transition: opacity 0.15s ease; }
+.rest-row.muted { opacity: 0.55; }
+.rest-row :deep(.el-input-number) { width: 118px; }
+.schedule-subtitle { margin-top: 16px; }
+.filter-help-content { max-width: 440px; line-height: 1.7; }
 .filter-help-content p { margin: 0; }
 .filter-help-content p + p { margin-top: 8px; }
+.filter-top-bar { display: flex; align-items: flex-end; gap: 12px 16px; flex-wrap: wrap; padding: 12px 14px; border-radius: 10px; background-color: var(--el-fill-color-lighter); border: 1px solid var(--el-border-color-lighter); }
+.filter-top-field { display: flex; flex-direction: column; gap: 4px; }
+.sub-field-label { font-size: 12.5px; color: var(--el-text-color-secondary); margin-bottom: 4px; }
+.sub-section-title { font-size: 14px; font-weight: 600; color: var(--el-text-color-primary); display: inline-flex; align-items: center; gap: 6px; }
+.mb8 { margin-bottom: 8px; }
+.combo-badge { margin-left: auto; font-size: 12.5px; color: var(--el-text-color-secondary); padding-bottom: 6px; }
+.warn-inline { color: var(--el-color-warning); margin-left: 4px; font-weight: 500; }
+.city-picker-inline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .exact-filter-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
 .exact-salary-range { display: flex; align-items: center; gap: 8px; margin-top: 8px; width: 100%; }
 .exact-salary-range .el-input-number { flex: 1; min-width: 0; }
+.local-check-strategies { margin-top: 14px; border-top: 1px solid var(--el-border-color-lighter); border-bottom: 0; }
+.local-check-strategies :deep(.el-collapse-item__header) { background: transparent; border-bottom: 0; font-weight: 500; }
+.local-check-strategies :deep(.el-collapse-item__wrap) { background: transparent; border-bottom: 0; }
+.strategy-group + .strategy-group { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--el-border-color-lighter); }
+.strategy-caption { margin: 0 0 8px; font-size: 12.5px; color: var(--el-text-color-secondary); }
+.company-head-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; width: 100%; margin-bottom: 8px; }
+.company-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.company-actions .el-button + .el-button { margin-left: 0; }
+.soft-divider { height: 1px; background-color: var(--el-border-color-lighter); margin: 18px 0; }
+.block-company-filter-wrap { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.9fr); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .block-company-filter-wrap { grid-template-columns: minmax(0, 1fr); } }
+.block-company-strategy { padding: 12px 14px; border-radius: 10px; background-color: var(--el-fill-color-lighter); border: 1px solid var(--el-border-color-lighter); }
 .geek-auto-start-run-with-boss__wrap {
   position: relative;
   width: 100%;
+  height: 100%;
   min-width: 0;
   color: var(--el-text-color-primary);
-  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--ggr-font-sans);
   font-size: 14px;
-  .page-heading { max-width: 1000px; margin: 0 auto 20px; }
-  h2 { margin: 0; font-size: 24px; font-weight: 600; }
-  .section-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
-  .config-section { border: 1px solid var(--el-border-color-light); border-radius: 12px; box-shadow: 0 2px 8px rgba(15, 23, 42, .025); }
-  .config-section :deep(.el-card__body) { padding: 22px; }
+  .page-heading { max-width: 1040px; margin: 0 auto 20px; }
+  .section-title { font-size: 15px; font-weight: 600; margin-bottom: 14px; display: flex; align-items: center; gap: 6px; }
+  .config-section { border: 1px solid var(--el-border-color-light); border-radius: 12px; box-shadow: var(--ggr-card-shadow); background: var(--el-bg-color); }
+  .config-section :deep(.el-card__body) { padding: 20px 24px; }
   :deep(.job-source-drag-orderer .list-group-item) { box-shadow: none; border-radius: 8px; background: var(--el-bg-color); }
-  .settings-footer { padding: 16px 0; border-top: 1px solid var(--el-border-color-light); background: var(--el-bg-color); }
+  .settings-footer { padding: 12px 24px; border-top: 1px solid var(--el-border-color-light); background: var(--ggr-footer-bg); backdrop-filter: blur(8px); flex-shrink: 0; }
+  .footer-inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; max-width: 1040px; margin: 0 auto; }
   :deep(.el-checkbox__label) { white-space: normal; line-height: 1.6; }
   .main__wrap {
     position: relative;
@@ -1485,21 +1142,17 @@ const fillCommonConfigField = (field) => {
     height: 100%;
     min-height: 0;
     .form-wrap {
-      overflow: auto;
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
       min-height: 0;
-      padding: 24px;
+      padding: 24px 32px;
       .config-section + .config-section {
         margin-top: 16px;
       }
       :deep(.el-form) {
-        max-width: 1000px;
+        max-width: 1040px;
         margin: 0 auto;
-      }
-      .last-form-item {
-        :deep(.el-form-item__content) {
-          margin-top: 0px;
-          justify-content: flex-end;
-        }
       }
     }
     .no-active-definition-text-slider {
@@ -1520,7 +1173,7 @@ const fillCommonConfigField = (field) => {
         }
       }
       ::v-deep(.el-slider__stop) {
-        box-shadow: 0 0 0 2px rgba(52, 137, 255, 0.3);
+        box-shadow: 0 0 0 2px var(--el-color-primary-light-7);
       }
       ::v-deep(.el-slider__button) {
         transform: rotate(45deg);

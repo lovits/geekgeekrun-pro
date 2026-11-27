@@ -188,8 +188,8 @@ async function saveCurrentChatRecord(page) {
     mappedItem.text = it.text
     if (it.type === 'image') {
       mappedItem.imageUrl = it.image?.originImage?.url
-      mappedItem.imageHeight = it.image?.originImage?.url?.height
-      mappedItem.imageWidth = it.image?.originImage?.url?.width
+      mappedItem.imageHeight = it.image?.originImage?.height
+      mappedItem.imageWidth = it.image?.originImage?.width
     }
 
     return mappedItem
@@ -249,7 +249,7 @@ async function checkJobIsClosed() {
           console.log(`access might be blocked`)
           if (
             htmlContent.includes(`您访问的页面不存在`) ||
-            location.href === `https://www.zhipin.com/`
+            targetPage.url() === `https://www.zhipin.com/`
           ) {
             await saveJobHireStatusRecord(await dbInitPromise, {
               encryptJobId,
@@ -283,7 +283,7 @@ async function checkJobIsClosed() {
     }
     record = await getJobHireStatusRecord(await dbInitPromise, encryptJobId)
   }
-  if (record.hireStatus !== JobHireStatus.HIRING) {
+  if (record && record.hireStatus !== JobHireStatus.HIRING) {
     isJobClosed = true
   }
   return isJobClosed
@@ -611,11 +611,12 @@ const mainLoop = async () => {
 
     const lastGeekMessageSendTime = historyMessageList.findLast((it) => it.isSelf)?.time ?? 0
     const isJobClosed = await checkJobIsClosed()
+    const lastMessage = historyMessageList.at(-1)
     if (
       !isJobClosed &&
       isExpectJobTypeMatch &&
-      historyMessageList[historyMessageList.length - 1].isSelf &&
-      historyMessageList[historyMessageList.length - 1].status === MsgStatus.HAS_READ &&
+      lastMessage?.isSelf &&
+      lastMessage.status === MsgStatus.HAS_READ &&
       ((conversationInfo &&
         Object.hasOwn(conversationInfo, 'bothTalked') &&
         !conversationInfo.bothTalked) ||
@@ -632,17 +633,17 @@ const mainLoop = async () => {
         .slice(-recentMessageQuantityForLlm)
       if (!messageList?.length) {
         if (openContentSource === OPEN_CONTENT_SOURCE.CONSTANT_CONTENT) {
-          await sendMessage(pageMapByName.boss!, constantOpenContent)
-          gtag('rnrr_llm_content_sent')
+          const sent = await sendMessage(pageMapByName.boss!, constantOpenContent)
+          if (sent) gtag('rnrr_llm_content_sent')
         } else {
           try {
             const textToSend = await getGptContent(messageList)
-            await sendMessage(pageMapByName.boss!, textToSend)
-            gtag('rnrr_llm_content_sent')
+            const sent = await sendMessage(pageMapByName.boss!, textToSend)
+            if (sent) gtag('rnrr_llm_content_sent')
           } catch (err) {
             console.log(err)
-            await sendMessage(pageMapByName.boss!, constantOpenContent)
-            gtag('rnrr_look_forward_reply_emotion_sent', {
+            const sent = await sendMessage(pageMapByName.boss!, constantOpenContent)
+            if (sent) gtag('rnrr_look_forward_reply_emotion_sent', {
               fallback: true
             })
           }
@@ -651,13 +652,13 @@ const mainLoop = async () => {
         if (rechatContentSource === RECHAT_CONTENT_SOURCE.GEMINI_WITH_CHAT_CONTEXT) {
           try {
             const textToSend = await getGptContent(messageList)
-            await sendMessage(pageMapByName.boss!, textToSend)
-            gtag('rnrr_llm_content_sent')
+            const sent = await sendMessage(pageMapByName.boss!, textToSend)
+            if (sent) gtag('rnrr_llm_content_sent')
           } catch (err) {
             console.log(err)
             if (rechatLlmFallback === RECHAT_LLM_FALLBACK.SEND_LOOK_FORWARD_EMOTION) {
-              await sendLookForwardReplyEmotion(pageMapByName.boss!)
-              gtag('rnrr_look_forward_reply_emotion_sent', {
+              const sent = await sendLookForwardReplyEmotion(pageMapByName.boss!)
+              if (sent) gtag('rnrr_look_forward_reply_emotion_sent', {
                 fallback: true
               })
             } else {
@@ -668,8 +669,8 @@ const mainLoop = async () => {
             }
           }
         } else {
-          await sendLookForwardReplyEmotion(pageMapByName.boss!)
-          gtag('rnrr_look_forward_reply_emotion_sent')
+          const sent = await sendLookForwardReplyEmotion(pageMapByName.boss!)
+          if (sent) gtag('rnrr_look_forward_reply_emotion_sent')
         }
       }
     } else {
@@ -730,7 +731,7 @@ export async function runEntry() {
     await dialog.showMessageBox({
       type: `error`,
       message: `未找到可用的浏览器`,
-      detail: `请重新运行本程序，按照提示安装、配置浏览器`
+      detail: `请前往「浏览器设置」自动检测、下载或手动选择 Chrome / Edge 浏览器`
     })
     sendToDaemon({
       type: 'worker-to-gui-message',
@@ -801,7 +802,7 @@ export async function runEntry() {
           await dialog.showMessageBox({
             type: 'error',
             message:
-              '未找到可以使用的模型，请确定您所配置的模型均可使用。重启本程序或许可以解决这个问题',
+              '未找到可用的大模型，请前往「大模型设置」检查配置与连接状态',
             buttons: ['退出']
           })
           process.exit(AUTO_CHAT_ERROR_EXIT_CODE.LLM_UNAVAILABLE)

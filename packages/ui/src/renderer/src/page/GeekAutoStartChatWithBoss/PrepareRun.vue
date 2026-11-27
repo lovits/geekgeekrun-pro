@@ -9,8 +9,8 @@ import { hasOwn } from '@vue/shared'
 import { PropType, computed } from 'vue'
 
 const statusTextMap = {
-  _: '请稍后，正在进行一些处理',
-  'locating-puppeteer-executable': '正在寻找可用的浏览器'
+  _: '正在准备运行环境，请稍候…',
+  'locating-puppeteer-executable': '正在检测可用浏览器…'
 } as const
 
 const props = defineProps({

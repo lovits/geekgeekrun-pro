@@ -1,0 +1,336 @@
+/* ==========================================================================
+   Geek Geek Run-Pro · 青黛工作台 (Jade-Slate Studio) Design System
+   Supports Light / Dark / System Mode seamlessly
+   ========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  /* Font stacks */
+  --ggr-font-sans: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  --ggr-font-mono: 'SFMono-Regular', 'JetBrains Mono', Menlo, Monaco, Consolas, monospace;
+
+  /* Jade-Teal Brand Primary (Light) */
+  --el-color-primary: #0d9488;
+  --el-color-primary-light-3: #3daea4;
+  --el-color-primary-light-5: #6ec3bb;
+  --el-color-primary-light-7: #9ed8d3;
+  --el-color-primary-light-8: #ceece9;
+  --el-color-primary-light-9: #eaf7f5;
+  --el-color-primary-dark-2: #0f766e;
+
+  /* Neutral Surfaces (Light) */
+  --el-bg-color-page: #f5f7f8;
+  --el-bg-color: #ffffff;
+  --el-bg-color-overlay: #ffffff;
+  --el-fill-color-light: #f3f6f8;
+  --el-fill-color-lighter: #f8fafb;
+  --el-border-color: #d8e0e6;
+  --el-border-color-light: #e3e8ee;
+  --el-border-color-lighter: #ecf0f4;
+  --el-text-color-primary: #182228;
+  --el-text-color-regular: #43525b;
+  --el-text-color-secondary: #6e7f89;
+  --el-text-color-placeholder: #9aa8b1;
+  --el-border-radius-base: 8px;
+
+  /* App-specific Semantic Tokens (Light) */
+  --ggr-sidebar-bg: #eef3f3;
+  --ggr-sidebar-border: #dce5e6;
+  --ggr-sidebar-hover: rgba(13, 148, 136, 0.07);
+  --ggr-sidebar-active-bg: rgba(13, 148, 136, 0.12);
+  --ggr-sidebar-active-fg: #0f766e;
+  --ggr-sidebar-group-fg: #6b7d85;
+
+  --ggr-card-shadow: 0 1px 3px rgba(15, 23, 42, 0.035);
+  --ggr-card-hover-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+  --ggr-footer-bg: rgba(255, 255, 255, 0.90);
+  --ggr-overlay-dot: rgba(245, 247, 248, 0.86);
+
+  --ggr-diff-del-bg: #fee2e2;
+  --ggr-diff-del-fg: #991b1b;
+  --ggr-diff-ins-bg: #dcfce7;
+  --ggr-diff-ins-fg: #166534;
+  --ggr-diff-chunk-fg: #6d28d9;
+
+  --ggr-chat-bubble-bg: #dff5f2;
+  --ggr-chat-bubble-fg: #13312e;
+  --ggr-chat-badge-bg: #0d9488;
+  --ggr-chat-badge-fg: #ffffff;
+}
+
+html.dark {
+  color-scheme: dark;
+
+  /* Jade-Teal Brand Primary (Dark) */
+  --el-color-primary: #14b8a6;
+  --el-color-primary-light-3: #2dd4bf;
+  --el-color-primary-light-5: #136f66;
+  --el-color-primary-light-7: #134e4a;
+  --el-color-primary-light-8: #113a38;
+  --el-color-primary-light-9: #102a2a;
+  --el-color-primary-dark-2: #5eead4;
+
+  /* Neutral Surfaces (Dark) */
+  --el-bg-color-page: #111518;
+  --el-bg-color: #192026;
+  --el-bg-color-overlay: #202931;
+  --el-fill-color-blank: #192026;
+  --el-fill-color: #242e37;
+  --el-fill-color-light: #202931;
+  --el-fill-color-lighter: #1c242b;
+  --el-fill-color-dark: #2a3640;
+  --el-border-color: #303d48;
+  --el-border-color-light: #26313a;
+  --el-border-color-lighter: #202a32;
+  --el-border-color-extra-light: #1c252c;
+  --el-text-color-primary: #e6edf0;
+  --el-text-color-regular: #b2c0c9;
+  --el-text-color-secondary: #82939f;
+  --el-text-color-placeholder: #5c6c78;
+  --el-mask-color: rgba(11, 15, 18, 0.76);
+
+  /* App-specific Semantic Tokens (Dark) */
+  --ggr-sidebar-bg: #151a1e;
+  --ggr-sidebar-border: #232c33;
+  --ggr-sidebar-hover: rgba(45, 212, 191, 0.08);
+  --ggr-sidebar-active-bg: rgba(45, 212, 191, 0.14);
+  --ggr-sidebar-active-fg: #2dd4bf;
+  --ggr-sidebar-group-fg: #6b7d89;
+
+  --ggr-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.025);
+  --ggr-card-hover-shadow: 0 6px 18px rgba(0, 0, 0, 0.36);
+  --ggr-footer-bg: rgba(25, 32, 38, 0.90);
+  --ggr-overlay-dot: rgba(17, 21, 24, 0.88);
+
+  --ggr-diff-del-bg: rgba(239, 68, 68, 0.20);
+  --ggr-diff-del-fg: #fca5a5;
+  --ggr-diff-ins-bg: rgba(34, 197, 94, 0.20);
+  --ggr-diff-ins-fg: #86efac;
+  --ggr-diff-chunk-fg: #c4b5fd;
+
+  --ggr-chat-bubble-bg: #163332;
+  --ggr-chat-bubble-fg: #e2f1ef;
+  --ggr-chat-badge-bg: #14b8a6;
+  --ggr-chat-badge-fg: #081c1a;
+}
+
+/* ==========================================================================
+   Shared Layout & Component Primitives
+   ========================================================================== */
+
+.ggr-page {
+  width: 100%;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 24px 32px 36px;
+  box-sizing: border-box;
+  color: var(--el-text-color-primary);
+  font-family: var(--ggr-font-sans);
+  min-width: 0;
+}
+
+.ggr-page.is-embedded {
+  padding: 0;
+  max-width: none;
+}
+
+.ggr-table-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 20px 24px 14px;
+  box-sizing: border-box;
+  gap: 12px;
+  overflow: hidden;
+  color: var(--el-text-color-primary);
+  font-family: var(--ggr-font-sans);
+}
+
+.ggr-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.ggr-table-page > .ggr-page-header {
+  margin-bottom: 0;
+  flex-shrink: 0;
+}
+
+.ggr-page-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.2px;
+  color: var(--el-text-color-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ggr-page-desc {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--el-text-color-secondary);
+}
+
+.ggr-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ggr-card {
+  background: var(--el-bg-color);
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 16px;
+  box-shadow: var(--ggr-card-shadow);
+  min-width: 0;
+}
+
+.ggr-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.ggr-card-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ggr-card-subtitle {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.ggr-help-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  margin-left: 4px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--el-text-color-secondary);
+  cursor: help;
+  vertical-align: middle;
+  transition: color 0.15s ease;
+}
+
+.ggr-help-btn:hover,
+.ggr-help-btn:focus-visible {
+  color: var(--el-color-primary);
+  outline: none;
+}
+
+.ggr-help-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.ggr-footer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 14px 20px;
+  border-radius: 12px;
+  background: var(--el-bg-color);
+  border: 1px solid var(--el-border-color-light);
+  box-shadow: var(--ggr-card-shadow);
+}
+
+.ggr-status-text {
+  font-size: 12.5px;
+  color: var(--el-text-color-secondary);
+}
+
+.ggr-mono,
+.ggr-mono textarea,
+.ggr-mono input {
+  font-family: var(--ggr-font-mono) !important;
+}
+
+/* Global Element Plus Polish */
+.el-card {
+  --el-card-border-color: var(--el-border-color-light);
+  --el-card-border-radius: 12px;
+  background-color: var(--el-bg-color);
+  box-shadow: var(--ggr-card-shadow) !important;
+}
+
+.el-table {
+  --el-table-header-bg-color: var(--el-fill-color-light);
+  --el-table-header-text-color: var(--el-text-color-regular);
+  --el-table-row-hover-bg-color: var(--el-fill-color-lighter);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.el-table th.el-table__cell {
+  font-weight: 600;
+}
+
+.el-drawer__header {
+  margin-bottom: 12px !important;
+  padding-bottom: 12px !important;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.el-drawer__title {
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--el-text-color-primary);
+}
+
+.el-tabs__item {
+  font-weight: 500;
+}
+
+.el-tabs__item.is-active {
+  font-weight: 600;
+}
+
+/* Subtle custom scrollbars for Light & Dark mode */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(130, 148, 160, 0.28);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(130, 148, 160, 0.45);
+}

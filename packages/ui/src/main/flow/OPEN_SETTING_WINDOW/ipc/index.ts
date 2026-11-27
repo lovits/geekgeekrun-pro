@@ -1,4 +1,11 @@
+import { configSaveHandler, waitForConfigSaves, validateConfigRegex } from '../../../features/config-save'
+import { registerAutoChatSchedule, pauseScheduledChatWindow, clearScheduledChatPause } from '../../../features/auto-chat-schedule'
+import { assertAutoChatTime, validateAutoChatSchedule } from '@geekgeekrun/utils/auto-chat-schedule.mjs'
+import { readAutoChatSchedule, autoChatSchedulePath } from '@geekgeekrun/utils/auto-chat-schedule-store.mjs'
+import { atomicWriteFile } from '@geekgeekrun/utils/atomic-file-write.mjs'
+import { normalizeChatRestConfig } from '@geekgeekrun/utils/successful-chat-rest.mjs'
 import { piStatus, piCompletion, listPiModels, resolvePiBinary } from '@geekgeekrun/utils/pi-request.mjs'
+import { registerHrAutoReply, readHrAutoReplyRecords } from '../../../features/hr-auto-reply'
 import { companyLibraryConditions } from '@geekgeekrun/utils/company-library-filters.mjs'
 import { downloadReleaseAsset } from '@geekgeekrun/utils/update-download.mjs'
 import { readJobFeedback, saveJobFeedback } from '@geekgeekrun/utils/job-feedback.mjs'
@@ -15,9 +22,10 @@ import { openResumePreview } from '../../../window/resumePreviewWindow'
 import { listCodexModels } from '@geekgeekrun/utils/codex-models.mjs'
 import { buildJobMatchContext } from '@geekgeekrun/utils/job-match-context.mjs'
 import filterCatalog from '@geekgeekrun/geek-auto-start-chat-with-boss/internal-config/job-filter-conditions-20241002.json'
-import { jobFilterOptions, matchInputSources, hasRequiredMatchInputs, mergeJobFilterSettings } from '@geekgeekrun/utils/job-filter-options.mjs'
+import { jobFilterOptions, matchInputSources, mergeJobFilterSettings } from '@geekgeekrun/utils/job-filter-options.mjs'
 import { parseResumeFile, parseResumeWithAi } from '@geekgeekrun/utils/resume-ai-parser.mjs'
 import { defaultJobPreferences, defaultMatchPrompt, jobMatchSystemPrompt, matchingPayload, matchJobWithResume } from '@geekgeekrun/utils/ai-job-match.mjs'
+import { completes } from '@geekgeekrun/utils/gpt-request.mjs'
 import { codexStatus, codexCompletion, resolveCodexBinary } from '@geekgeekrun/utils/codex-request.mjs'
 import { ipcMain, shell, app, dialog, BrowserWindow } from 'electron'
 import path from 'path'
@@ -78,11 +86,17 @@ import {
 import { getLastUsedAndAvailableBrowser } from '../../DOWNLOAD_DEPENDENCIES/utils/browser-history'
 import { waitForCommonJobConditionDone } from '../../../features/common-job-condition'
 import { ensureConfigFileExist } from '@geekgeekrun/geek-auto-start-chat-with-boss/runtime-file-utils.mjs'
+import { registerUiThemeIpc } from '../../../utils/theme'
 
 export default function initIpc() {
+  registerUiThemeIpc()
+  registerHrAutoReply()
+  registerAutoChatSchedule()
   registerApplicationSimulation()
-  ipcMain.handle('save-config-file-from-ui', async (_ev, payload) => {
+  configSaveHandler('save-config-file-from-ui', async (_ev, payload) => {
     payload = JSON.parse(payload)
+    validateConfigRegex(payload)
+    const schedule = hasOwn(payload, 'autoChatSchedule') ? validateAutoChatSchedule(payload.autoChatSchedule) : undefined
     ensureConfigFileExist()
 
     const promiseArr: Array<Promise<unknown>> = []
@@ -184,6 +198,12 @@ export default function initIpc() {
       bossConfig.staticCombineRecommendJobFilterConditions =
         payload.staticCombineRecommendJobFilterConditions
     }
+    if (hasOwn(payload, 'successfulChatRestEnabled')) {
+      if (typeof payload.successfulChatRestEnabled !== 'boolean' || !Number.isInteger(payload.successfulChatRestEvery) || payload.successfulChatRestEvery < 1 || payload.successfulChatRestEvery > 10000 || !Number.isFinite(payload.successfulChatRestMinutes) || payload.successfulChatRestMinutes < 0 || payload.successfulChatRestMinutes > 1440) throw new Error('请检查成功开聊次数与休息分钟数')
+      bossConfig.successfulChatRestEnabled = payload.successfulChatRestEnabled
+      bossConfig.successfulChatRestEvery = payload.successfulChatRestEvery
+      bossConfig.successfulChatRestMinutes = payload.successfulChatRestMinutes
+    }
     if (hasOwn(payload, 'isSageTimeEnabled')) {
       bossConfig.isSageTimeEnabled = payload.isSageTimeEnabled
     }
@@ -200,10 +220,10 @@ export default function initIpc() {
       bossConfig.blockCompanyNameRegMatchStrategy = payload.blockCompanyNameRegMatchStrategy
     }
     if (hasOwn(payload, 'fieldsForUseCommonConfig')) {
-      bossConfig.fieldsForUseCommonConfig = payload.fieldsForUseCommonConfig
+      bossConfig.fieldsForUseCommonConfig = { ...payload.fieldsForUseCommonConfig, expectCompanies: true, blockCompanyNameRegExpStr: true }
     }
 
-    promiseArr.push(writeConfigFile('boss.json', bossConfig))
+    promiseArr.push(writeConfigFile('boss.json', normalizeChatRestConfig(bossConfig)))
 
     if (hasOwn(payload, 'expectCompanies')) {
       promiseArr.push(
@@ -211,89 +231,58 @@ export default function initIpc() {
       )
     }
 
-    return await Promise.all(promiseArr)
+    const result = await Promise.all(promiseArr)
+    if (schedule) await atomicWriteFile(autoChatSchedulePath, JSON.stringify(schedule))
+    return result
   })
 
   ipcMain.handle('run-geek-auto-start-chat-with-boss', async (_ev) => {
     if (onlineSimulationRunning(await readOnlineSimulation())) throw new Error('在线模拟正在运行，请先停止在线模拟后再启动真实开聊')
+    assertAutoChatTime(readAutoChatSchedule())
+    await clearScheduledChatPause()
     const mode = 'geekAutoStartWithBossMain'
     const { runRecordId } = await runCommon({ mode })
-    daemonEE.on('message', function handler(message) {
-      if (message.workerId !== mode) {
-        return
-      }
-      if (message.type === 'worker-exited') {
-        mainWindow?.webContents.send('worker-exited', message)
-      }
-    })
     return { runRecordId }
   })
 
-  ipcMain.handle('run-read-no-reply-auto-reminder', async () => {
-    const mode = 'readNoReplyAutoReminderMain'
-    const { runRecordId } = await runCommon({ mode })
-    daemonEE.on('message', function handler(message) {
-      if (message.workerId !== mode) {
-        return
-      }
-      if (message.type === 'worker-exited') {
-        mainWindow?.webContents.send('worker-exited', message)
-      }
-    })
-    return { runRecordId }
-  })
-
-  ipcMain.handle('stop-geek-auto-start-chat-with-boss', async () => {
-    mainWindow?.webContents.send('geek-auto-start-chat-with-boss-stopping')
-    const p = new Promise((resolve) => {
-      daemonEE.on('message', function handler(message) {
-        if (message.workerId !== 'geekAutoStartWithBossMain') {
-          return
-        }
-        if (message.type === 'worker-exited') {
+  async function stopWorkerAndWait(workerId: string) {
+    const p = new Promise<void>((resolve) => {
+      const timer = setTimeout(() => {
+        daemonEE.off('message', handler)
+        resolve()
+      }, 8000)
+      function handler(message: any) {
+        if (message.workerId !== workerId) return
+        if (message.type === 'worker-exited' || message.type === 'worker-disconnected') {
+          clearTimeout(timer)
           daemonEE.off('message', handler)
-          resolve(undefined)
+          resolve()
         }
-      })
+      }
+      daemonEE.on('message', handler)
     })
     await sendToDaemon(
       {
         type: 'stop-worker',
-        workerId: 'geekAutoStartWithBossMain'
+        workerId
       },
       {
         needCallback: true
       }
     )
-
     await p
+  }
+
+  ipcMain.handle('stop-geek-auto-start-chat-with-boss', async () => {
+    await pauseScheduledChatWindow()
+    mainWindow?.webContents.send('geek-auto-start-chat-with-boss-stopping')
+    await stopWorkerAndWait('geekAutoStartWithBossMain')
     mainWindow?.webContents.send('geek-auto-start-chat-with-boss-stopped')
   })
 
   ipcMain.handle('stop-read-no-reply-auto-reminder', async () => {
     mainWindow?.webContents.send('read-no-reply-auto-reminder-stopping')
-    const p = new Promise((resolve) => {
-      daemonEE.on('message', function handler(message) {
-        if (message.workerId !== 'readNoReplyAutoReminderMain') {
-          return
-        }
-        if (message.type === 'worker-exited') {
-          daemonEE.off('message', handler)
-          resolve(undefined)
-        }
-      })
-    })
-    await sendToDaemon(
-      {
-        type: 'stop-worker',
-        workerId: 'readNoReplyAutoReminderMain'
-      },
-      {
-        needCallback: true
-      }
-    )
-
-    await p
+    await stopWorkerAndWait('readNoReplyAutoReminderMain')
     mainWindow?.webContents.send('read-no-reply-auto-reminder-stopped')
   })
 
@@ -311,6 +300,7 @@ export default function initIpc() {
 
   // IPC处理：停止工具进程
   ipcMain.handle('stop-task', async (_, workerId) => {
+    if (workerId === 'geekAutoStartWithBossMain') await pauseScheduledChatWindow()
     await sendToDaemon(
       {
         type: 'stop-worker',
@@ -403,6 +393,8 @@ export default function initIpc() {
     if (result.data?.exportError) throw new Error('读取运行数据失败，未导出')
     const feedback = await readJobFeedback()
     const simulation = options.scope === 'all' || options.scope === 'simulation' ? await readDisplayedSimulation() : null
+    const replies = options.scope === 'all' || options.scope === 'replies' ? await readHrAutoReplyRecords() : null
+    if (options.scope === 'replies') result.data.replies = replies
     if (options.scope === 'simulation') result.data.simulation = simulation?.displayJobs || []
     const records = options.scope === 'all' ? null : selectExportRecords(result.data, options, feedback)
     if (records && !records.length) throw new Error('没有符合条件的记录，请调整筛选条件')
@@ -413,7 +405,7 @@ export default function initIpc() {
       try { const text = await fs.readFile(path.join(storageFilePath, name), 'utf8'); return lines ? text.split('\n').filter(Boolean).map(line => JSON.parse(line)) : JSON.parse(text) }
       catch (error: any) { if (error.code === 'ENOENT') return []; throw error }
     }
-    const output = records ? { version: 1, exportedAt: new Date().toISOString(), scope: options.scope, filters: options.filters, recordCount: records.length, records } : { version: 1, exportedAt: new Date().toISOString(), database: result.data, simulation, feedback, matchingAudit: await readOptional('job-ai-match-audit.jsonl', true), scoreExamples: await readOptional('job-ai-score-examples.json'), learnedPreferences: readConfigFile('job-ai-match.json')?.learnedPreferences || '' }
+    const output = records ? { version: 1, exportedAt: new Date().toISOString(), scope: options.scope, filters: options.filters, recordCount: records.length, records } : { version: 1, exportedAt: new Date().toISOString(), database: result.data, simulation, replies, feedback, matchingAudit: await readOptional('job-ai-match-audit.jsonl', true), scoreExamples: await readOptional('job-ai-score-examples.json'), learnedPreferences: readConfigFile('job-ai-match.json')?.learnedPreferences || '' }
     await fs.writeFile(selection.filePath, options.format === 'csv' ? recordsToCsv(records, options.scope) : JSON.stringify(output, null, 2), { mode: 0o600 })
     return { path: selection.filePath, scope: options.scope, count: records?.length, tables: Object.keys(result.data).length }
   })
@@ -475,7 +467,7 @@ export default function initIpc() {
         await dialog.showMessageBox({
           type: `error`,
           message: `未找到可用的浏览器`,
-          detail: `请重新运行本程序，按照提示安装、配置浏览器`
+          detail: `请前往「浏览器设置」自动检测、下载或手动选择 Chrome / Edge 浏览器`
         })
         return
       }
@@ -543,7 +535,7 @@ export default function initIpc() {
     const codex = model.provider === 'codex-cli'
     const pi = model.provider === 'pi-cli'
     const status = pi ? await piStatus(model) : codex ? await codexStatus(model) : null
-    return { provider: pi ? '本机 Pi CLI → 配置的模型服务' : codex ? '本机 Codex CLI → OpenAI 云端模型' : 'API 接入', model: model.model || '自动选择（实际模型显示在每次运行结果）', reasoningEffort: model.reasoningEffort || '模型默认', account: status?.email || '', endpoint: codex || pi ? status?.binary : model.providerCompleteApiUrl }
+    return { provider: pi ? '本机 Pi CLI（Codex / Antigravity 等）' : codex ? '本机 Codex CLI' : '在线 API 接入', model: model.model || '自动选择（实际模型显示在每次运行结果）', reasoningEffort: model.reasoningEffort || '模型默认', account: status?.email || '', endpoint: codex || pi ? status?.binary : model.providerCompleteApiUrl }
   })
   ipcMain.handle('get-job-ai-score-examples', () => {
     try { return recentScoreExamples(JSON.parse(require('node:fs').readFileSync(path.join(storageFilePath, 'job-ai-score-examples.json'), 'utf8'))) }
@@ -554,24 +546,23 @@ export default function initIpc() {
     const options = jobFilterOptions(config)
     return { ...config, enabled: options.enabled, regexFilters: options.regex, aiFilters: options.ai, inputSources: matchInputSources(config), customPrompt: config.customPrompt || defaultMatchPrompt, preferences: config.preferences || defaultJobPreferences }
   }
-  ipcMain.handle('get-job-ai-match', matchingSettings)
+  ipcMain.handle('get-job-ai-match', async () => { await waitForConfigSaves(); return matchingSettings() })
   ipcMain.handle('get-job-matching-preview', async () => {
+    await waitForConfigSaves()
     const config = matchingSettings(), context = matchingContext()
     const payload = { systemInstructions: jobMatchSystemPrompt, ...matchingPayload({ ...config, filterContext: context, feedbackRecords: await readJobFeedback() }, { jobInfo: {} }) }
     return { config, context, payload }
   })
-  ipcMain.handle('save-job-filter-switches', (_, payload) => queueJobMatchUpdate(async () => {
+  configSaveHandler('save-job-filter-switches', (_, payload) => queueJobMatchUpdate(async () => {
     const config = readConfigFile('job-ai-match.json')
     const updated = mergeJobFilterSettings(config, payload)
-    if (updated.enabled && !hasRequiredMatchInputs(updated)) throw new Error('请先到AI模型筛选中保存简历和求职偏好')
     const { warning, ...learning } = await feedbackSwitchPatch(config, updated)
     await writeConfigFile('job-ai-match.json', { ...updated, ...learning })
     return { enabled: updated.enabled, regexFilters: updated.regexFilters, aiFilters: updated.aiFilters, inputSources: updated.inputSources, warning }
   }))
-  ipcMain.handle('save-job-ai-match', (_, config) => queueJobMatchUpdate(async () => {
+  configSaveHandler('save-job-ai-match', (_, config) => queueJobMatchUpdate(async () => {
     if (typeof config?.resumeText !== 'string' || typeof config.preferences !== 'string' || config.resumeText.length > 80000 || config.preferences.length > 20000) throw new Error('AI筛选配置格式无效或内容过长')
     const existing = readConfigFile('job-ai-match.json')
-    if (jobFilterOptions(existing).enabled && !hasRequiredMatchInputs(config)) throw new Error('请先导入简历并填写求职偏好')
     if (typeof config.customPrompt !== 'string' || config.customPrompt.length > 20000) throw new Error('提示词无效或过长')
     const inputSources = matchInputSources(config)
     if (config.resumeFileId) await fs.access(resumeDocumentPath(config.resumeFileId))
@@ -600,6 +591,58 @@ export default function initIpc() {
     const model = readConfigFile('llm.json')?.find(it => it.enabled)
     return matchJobWithResume({ ...config, filterContext: matchingContext() }, { jobInfo: candidate, selectedJob: { brandName: candidate.company || '', cityName: candidate.city || '' } }, model)
   })
+  const llmEndpointCachePath = path.join(configFolderPath, 'llm-endpoint-cache.json')
+  function normalizeEndpointUrl(url?: string) {
+    return String(url || '').trim().replace(/\/+$/, '')
+  }
+  async function readLlmEndpointCache(): Promise<Record<string, { providerCompleteApiUrl: string; model: string; providerApiSecret: string }>> {
+    try {
+      const parsed = JSON.parse(await fs.readFile(llmEndpointCachePath, 'utf8'))
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+    } catch {
+      return {}
+    }
+  }
+  async function updateLlmEndpointCache(configs: any[]) {
+    const cache = await readLlmEndpointCache()
+    let changed = false
+    for (const conf of configs || []) {
+      if ((conf?.provider || 'openai') !== 'openai') continue
+      const key = normalizeEndpointUrl(conf.providerCompleteApiUrl)
+      if (!key || !/^https?:\/\//i.test(key)) continue
+      const prev = cache[key]
+      const nextSecret = conf.providerApiSecret?.trim() || prev?.providerApiSecret || ''
+      const nextModel = conf.model?.trim() || prev?.model || ''
+      if (!prev || prev.providerApiSecret !== nextSecret || prev.model !== nextModel || prev.providerCompleteApiUrl !== conf.providerCompleteApiUrl.trim()) {
+        cache[key] = {
+          providerCompleteApiUrl: conf.providerCompleteApiUrl.trim(),
+          model: nextModel,
+          providerApiSecret: nextSecret
+        }
+        changed = true
+      }
+    }
+    if (changed) {
+      await atomicWriteFile(llmEndpointCachePath, JSON.stringify(cache, null, 2))
+      await fs.chmod(llmEndpointCachePath, 0o600).catch(() => {})
+    }
+    return cache
+  }
+  ipcMain.handle('get-llm-endpoint-cache', () => readLlmEndpointCache())
+  ipcMain.handle('test-openai-connection', async (_, settings = {}) => {
+    const baseURL = String(settings?.providerCompleteApiUrl || '').trim()
+    const model = String(settings?.model || '').trim()
+    const apiKey = String(settings?.providerApiSecret || '').trim()
+    if (!/^https?:\/\//i.test(baseURL)) throw new Error('请先填写以 http:// 或 https:// 开头的服务地址')
+    if (!model) throw new Error('请先填写模型名称')
+    if (!apiKey) throw new Error('请先填写 API Key')
+    const result = await completes(
+      { provider: 'openai', baseURL, apiKey, model, reasoningEffort: settings?.reasoningEffort, maxTokens: 200 },
+      [{ role: 'user', content: '只回复：连接成功' }]
+    )
+    const content = result?.choices?.[0]?.message?.content?.trim() || '连接成功'
+    return `${content}；实际模型：${result?.model || model}`
+  })
   ipcMain.handle('pi-models', (_, settings = {}) => listPiModels(settings))
   ipcMain.handle('pi-status', (_, settings = {}) => piStatus(settings))
   ipcMain.handle('test-pi-connection', async (_, settings = {}) => {
@@ -613,26 +656,38 @@ export default function initIpc() {
     const result = await codexCompletion([{ role: 'user', content: '只回复：连接成功' }], model, { codexDetectionMode: settings?.codexDetectionMode, codexBinaryPath: settings?.codexBinaryPath, reasoningEffort: typeof settings === 'object' ? settings.reasoningEffort : '', contextWindowTokens: settings?.contextWindowTokens })
     return `${result.choices[0].message.content}；实际模型：${result.model}`
   })
-  ipcMain.handle('save-llm-config', async (_, configToSave, { embedded = false } = {}) => {
-    for (const config of configToSave) if (config.provider === 'codex-cli') { await resolveCodexBinary(config); validateContextWindow(config.contextWindowTokens, await codexContextLimits(config.model)) }
-    for (const config of configToSave) if (config.provider === 'pi-cli' && config.enabled !== false) {
-      await resolvePiBinary(config)
-      if (config.contextWindowTokens) {
-        const models = await listPiModels(config)
-        const selected = config.model ? models.find(item => item.id === config.model) : models.find(item => item.isDefault)
-        validateContextWindow(config.contextWindowTokens, selected?.contextLimits)
+  configSaveHandler('save-llm-config', async (_, configToSave, { embedded = false } = {}) => {
+    for (const config of configToSave) {
+      if (config.provider === 'codex-cli' && config.enabled !== false && config.contextWindowTokens) {
+        try {
+          await resolveCodexBinary(config)
+          validateContextWindow(config.contextWindowTokens, await codexContextLimits(config.model))
+        } catch (err: any) {
+          if (String(err?.message || '').includes('上下文')) throw err
+        }
+      }
+      if (config.provider === 'pi-cli' && config.enabled !== false && config.contextWindowTokens) {
+        try {
+          await resolvePiBinary(config)
+          const models = await listPiModels(config)
+          const selected = config.model ? models.find(item => item.id === config.model) : models.find(item => item.isDefault)
+          validateContextWindow(config.contextWindowTokens, selected?.contextLimits)
+        } catch (err: any) {
+          if (String(err?.message || '').includes('上下文')) throw err
+        }
       }
     }
     await writeConfigFile('llm.json', configToSave)
+    await updateLlmEndpointCache(configToSave)
     if (!embedded) ipcMain.emit('llm-config-saved')
   })
   ipcMain.handle('llm-config', async () => {
     const win = createLlmConfigWindow({ parent: mainWindow!, modal: true, show: true })
-    return new Promise<void>((resolve, reject) => {
+    return new Promise<void>((resolve) => {
       let saved = false
       const done = () => { saved = true; resolve(); win.close() }
       ipcMain.once('llm-config-saved', done)
-      win.once('closed', () => { ipcMain.off('llm-config-saved', done); if (!saved) reject(new Error('cancel')) })
+      win.once('closed', () => { ipcMain.off('llm-config-saved', done); if (!saved) resolve() })
     })
   })
   ipcMain.on('close-llm-config', () => llmConfigWindow?.close())
@@ -655,6 +710,7 @@ export default function initIpc() {
       defer.resolve()
       resumeEditorWindow?.close()
     }
+    ipcMain.removeHandler('save-resume-content')
     ipcMain.handle('save-resume-content', saveResumeHandler)
     resumeEditorWindow?.once('closed', () => {
       ipcMain.removeHandler('save-resume-content')
@@ -724,6 +780,7 @@ export default function initIpc() {
         llmConfigIdForPick: requestPayload.llmConfigIdForPick ?? null
       })
     }
+    ipcMain.removeHandler('request-llm-for-test')
     ipcMain.handle('request-llm-for-test', requestLlm)
     readNoReplyReminderLlmMockWindow?.once('closed', () => {
       ipcMain.removeHandler('request-llm-for-test')
@@ -731,6 +788,7 @@ export default function initIpc() {
     async function getLlmConfigList() {
       return await readConfigFile('llm.json')
     }
+    ipcMain.removeHandler('get-llm-config-for-test')
     ipcMain.handle('get-llm-config-for-test', getLlmConfigList)
     readNoReplyReminderLlmMockWindow?.once('closed', () => {
       ipcMain.removeHandler('get-llm-config-for-test')

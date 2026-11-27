@@ -1,6 +1,6 @@
-export const portableFiles = ['boss.json', 'common-job-condition-config.json', 'target-company-list.json', 'job-ai-match.json', 'llm.json', 'resumes.json']
+export const portableFiles = ['boss.json', 'common-job-condition-config.json', 'target-company-list.json', 'job-ai-match.json', 'llm.json', 'resumes.json', 'hr-auto-reply.json', 'auto-chat-schedule.json']
 const arrayFiles = new Set(['target-company-list.json', 'llm.json', 'resumes.json'])
-const privateKey = /^(providerApiSecret|apiKey|geminiApiKey|accessToken|refreshToken|groupRobotAccessToken|password|cookie|cookies|codexBinaryPath|piBinaryPath|resumeFileId)$/i
+const privateKey = /^(providerApiSecret|apiKey|geminiApiKey|accessToken|refreshToken|groupRobotAccessToken|password|cookie|cookies|codexBinaryPath|piBinaryPath|resumeFileId|resumeBinding|resumeSha256)$/i
 const forbiddenKey = /^(?:__proto__|prototype|constructor)$/
 
 function clean(value) {
@@ -41,6 +41,11 @@ export function preparePortableImport(bundle, current) {
   }
   if (!Object.keys(result).length) throw new Error('配置文件中没有可导入的设置')
   if (result['job-ai-match.json']) result['job-ai-match.json'].resumeFileId = ''
+  if (result['hr-auto-reply.json']) {
+    Object.assign(result['hr-auto-reply.json'], { resumeFileId: '', resumeSha256: '', resumeBinding: null })
+    if (result['hr-auto-reply.json'].enabled === true) result['hr-auto-reply.json'].enabled = false
+  }
+  if (result['auto-chat-schedule.json']?.enabled === true) result['auto-chat-schedule.json'].enabled = false
   if (result['boss.json']?.autoReminder && current['boss.json']?.autoReminder?.geminiApiKey) result['boss.json'].autoReminder.geminiApiKey = current['boss.json'].autoReminder.geminiApiKey
   for (const model of result['llm.json'] || []) {
     const old = (current['llm.json'] || []).find(item => item.id === model.id && item.provider === model.provider) || (current['llm.json'] || []).find(item => item.provider === model.provider && item.model === model.model)

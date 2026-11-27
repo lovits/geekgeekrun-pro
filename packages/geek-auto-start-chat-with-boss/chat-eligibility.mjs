@@ -13,7 +13,7 @@ export function canStartChat({ expectedJobId, jobInfo, selectedJob, companies, b
   }
 }
 
-export async function installChatRequestGuard(page, { simulation = false } = {}) {
+export async function installChatRequestGuard(page, { simulation = false, canSendNow = () => true } = {}) {
   let approvedJobId = null
   await page.setRequestInterception(true)
   page.on('request', request => {
@@ -23,7 +23,7 @@ export async function installChatRequestGuard(page, { simulation = false } = {})
     const isBoss = url.hostname === 'zhipin.com' || url.hostname.endsWith('.zhipin.com')
     const isUnsuitableFeedback = url.hostname === 'www.zhipin.com' && url.pathname === '/wapi/zpgeek/negativefeedback/save.json' && request.method() === 'POST'
     const simulationWrite = simulation && isBoss && !isUnsuitableFeedback && (!['GET', 'HEAD', 'OPTIONS'].includes(request.method()) || /\/friend\/add\.json$/.test(url.pathname))
-    if (simulationWrite || (isChatRequest && (simulation || !approvedJobId || url.searchParams.get('jobId') !== approvedJobId))) {
+    if (simulationWrite || (isChatRequest && (simulation || !canSendNow() || !approvedJobId || url.searchParams.get('jobId') !== approvedJobId))) {
       void request.abort('blockedbyclient').catch(() => {})
     } else {
       void request.continue().catch(() => {})

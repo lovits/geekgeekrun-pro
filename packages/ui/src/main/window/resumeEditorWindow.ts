@@ -1,19 +1,22 @@
 import { BrowserWindow } from 'electron'
 import path from 'path'
+import { windowBackgroundColor } from '../utils/theme'
 
 export let resumeEditorWindow: BrowserWindow | null = null
 export function createResumeEditorWindow(
   opt?: Electron.BrowserWindowConstructorOptions
 ): BrowserWindow {
-  // Create the browser window.
-  if (resumeEditorWindow) {
-    resumeEditorWindow!.show()
+  if (resumeEditorWindow && !resumeEditorWindow.isDestroyed()) {
+    resumeEditorWindow.show()
+    resumeEditorWindow.focus()
+    return resumeEditorWindow
   }
   resumeEditorWindow = new BrowserWindow({
     width: 960,
     height: 720,
     resizable: true,
     show: false,
+    backgroundColor: windowBackgroundColor(),
     autoHideMenuBar: true,
     frame: true,
     webPreferences: {

@@ -1,117 +1,303 @@
 <template>
   <section ref="pageRoot" class="ai-match-page">
-    <header class="page-heading">
-      <div><h2>AI 模型筛选</h2></div>
-      <el-button @click="refreshInfo().catch(error => ElMessage.error(String(error)))">刷新</el-button>
+    <header class="ggr-page-header">
+      <div>
+        <h2 class="ggr-page-title">AI 模型筛选</h2>
+        <p class="ggr-page-desc">在规则筛选之后，结合个人简历与求职偏好对岗位职责进行精细匹配与打分</p>
+      </div>
+      <div class="ggr-header-actions">
+        <span class="ggr-status-text" role="status">{{ autosave.status.value }}</span>
+        <el-button size="small" @click="refreshInfo().catch((error) => ElMessage.error(String(error)))">刷新状态</el-button>
+      </div>
     </header>
+
     <div class="model-strip">
-      <span class="model-label">当前模型</span><strong>{{ modelInfo.model || '尚未启用' }}</strong>
-      <span class="muted">{{ modelInfo.reasoningEffort === '模型默认' ? '默认推理强度' : modelInfo.reasoningEffort }}</span>
-      <el-popover placement="bottom" :width="340" trigger="click"><template #reference><el-button link>模型详情</el-button></template>
-        <div class="model-detail">{{ modelInfo.provider }}<br />{{ modelInfo.account }}<br />简历解析与岗位评分共用此模型。</div>
+      <span class="model-label">当前启用模型</span>
+      <strong>{{ modelInfo.model || '尚未启用' }}</strong>
+      <el-tag size="small" type="info" effect="plain">
+        {{ modelInfo.reasoningEffort === '模型默认' ? '默认推理强度' : modelInfo.reasoningEffort || '默认推理强度' }}
+      </el-tag>
+      <el-popover placement="bottom-end" :width="340" trigger="click">
+        <template #reference>
+          <el-button link type="primary" size="small" style="margin-left: auto">查看模型详情</el-button>
+        </template>
+        <div class="model-detail">
+          <div><strong>接入方式：</strong>{{ modelInfo.provider }}</div>
+          <div v-if="modelInfo.account"><strong>当前账号：</strong>{{ modelInfo.account }}</div>
+          <div style="margin-top: 6px; opacity: 0.85">简历解析与岗位匹配评分共用此模型配置。</div>
+        </div>
       </el-popover>
     </div>
+
     <el-tabs v-model="activeTab" class="match-tabs">
       <el-tab-pane label="匹配设置" name="settings">
-        <section data-setting="scope" tabindex="-1" class="settings-card">
-          <div class="card-heading"><h3>筛选范围</h3></div>
+        <section data-setting="scope" tabindex="-1" class="ggr-card">
+          <div class="ggr-card-header">
+            <h3 class="ggr-card-title">AI 评估字段与参考资料</h3>
+            <el-tooltip placement="top" :enterable="false">
+              <template #content>
+                <div style="max-width: 340px; line-height: 1.75">
+                  <p style="margin: 0 0 6px">建议各项资料各有侧重：简历写客观经历与技能，求职偏好写期望方向与取舍，筛选条件负责硬性门槛。</p>
+                  <p style="margin: 0">避免在不同资料里重复粘贴整段相同文字，保持提供给模型的信息干净一致。</p>
+                </div>
+              </template>
+              <button type="button" class="ggr-help-btn" aria-label="提供给模型的资料说明">
+                <QuestionFilled />
+              </button>
+            </el-tooltip>
+          </div>
+
           <JobFilterMode scope="ai" compact />
-          <div class="field-label">提供给模型的资料<el-tooltip placement="top" :enterable="false"><template #content><div style="max-width: 340px; line-height: 1.8"><p>按匹配需要勾选，各项资料尽量各有侧重：简历写真实经历与能力，求职偏好写目标与取舍，筛选条件写具体限制。</p><p>不要在多个资料中反复粘贴同一段内容。使用模板后按需删减，保留必要信息，避免重复或过多文本；内容有重合时，也应保持一致，不要互相矛盾。</p></div></template><button type="button" class="preference-help" aria-label="提供给模型的资料说明"><QuestionFilled /></button></el-tooltip></div>
-          <div class="input-grid"><el-checkbox :data-setting="'input-' + item.key" v-for="item in inputOptions" :key="item.key" v-model="settings.inputSources[item.key]" :disabled="settings.loading" @change="saveInputSources">{{ item.label }}</el-checkbox></div>
-          
+
+          <div class="field-label">提供给大模型的参考资料</div>
+          <div class="input-grid">
+            <el-checkbox
+              v-for="item in inputOptions"
+              :key="item.key"
+              :data-setting="'input-' + item.key"
+              v-model="settings.inputSources[item.key]"
+              :disabled="settings.loading"
+                  @change="saveInputSources"
+            >
+              {{ item.label }}
+            </el-checkbox>
+          </div>
         </section>
+
         <div class="settings-grid">
-          <section class="settings-card">
-            <div class="card-heading"><h3>我的简历</h3><el-tag size="small" effect="plain">本机保存</el-tag></div>
-            <el-button v-if="config.resumeFileName" class="resume-file" link type="primary" :disabled="!config.resumeFileId" :loading="previewing" @click="previewResume">{{ config.resumeFileName }}<span v-if="config.resumeFileId" class="file-action">预览</span></el-button>
-            
-            <div class="actions"><el-button :loading="importing" @click="importResume">导入并用 AI 解析</el-button><el-button :loading="parsing" @click="parseText">AI 整理文本</el-button></div>
-            <el-form-item data-setting="resume" label="简历内容"><el-input v-model="config.resumeText" type="textarea" :rows="7" maxlength="80000" /></el-form-item>
-            <el-collapse class="quiet-collapse"><el-collapse-item title="原文与解析记录" name="resume">
-              <p>{{ config.resumeParseMethod || '尚无解析记录' }} · {{ config.resumeParseModel || '模型未记录' }}</p>
-              <p v-if="config.resumeParsingNotes?.length">待核对：{{ config.resumeParsingNotes.join('；') }}</p>
-              <pre>{{ config.resumeSourceText || '尚无原始提取文本' }}</pre>
-            </el-collapse-item></el-collapse>
+          <section class="ggr-card mb0">
+            <div class="ggr-card-header">
+              <h3 class="ggr-card-title">我的简历</h3>
+              <el-tag size="small" effect="plain">仅保存在本机</el-tag>
+            </div>
+
+            <div class="actions">
+              <el-button size="small" type="primary" plain :loading="importing" @click="importResume">
+                导入简历文件（AI 解析）
+              </el-button>
+              <el-button size="small" :loading="parsing" @click="parseText">AI 整理下方文本</el-button>
+              <el-button
+                v-if="config.resumeFileName"
+                class="resume-file"
+                link
+                type="primary"
+                size="small"
+                :disabled="!config.resumeFileId"
+                :loading="previewing"
+                @click="previewResume"
+              >
+                {{ config.resumeFileName }} · 预览 PDF
+              </el-button>
+            </div>
+
+            <el-form-item data-setting="resume" label="简历正文内容" class="mb0">
+              <el-input v-model="config.resumeText" type="textarea" :rows="8" maxlength="80000" placeholder="导入 PDF / Markdown 简历或直接粘贴个人经历文本" />
+            </el-form-item>
+
+            <el-collapse class="quiet-collapse mt8">
+              <el-collapse-item title="查看原文提取与解析记录" name="resume">
+                <p class="muted">{{ config.resumeParseMethod || '尚无解析记录' }} · {{ config.resumeParseModel || '模型未记录' }}</p>
+                <p v-if="config.resumeParsingNotes?.length" class="muted">待人工核对：{{ config.resumeParsingNotes.join('；') }}</p>
+                <pre>{{ config.resumeSourceText || '暂无原始提取文本' }}</pre>
+              </el-collapse-item>
+            </el-collapse>
           </section>
-          <section class="settings-card">
-            <div class="card-heading"><h3>求职偏好</h3><el-dropdown @command="preferenceTemplateVisible = true"><el-button size="small">求职偏好模板 <el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button><template #dropdown><el-dropdown-menu><el-dropdown-item command="agent">Agent开发</el-dropdown-item></el-dropdown-menu></template></el-dropdown></div>
-            <section v-if="preferenceTemplateVisible" class="preference-template">
-              <h4>Agent开发模板</h4>
-              <el-input :model-value="agentPreferenceTemplate" type="textarea" :rows="10" readonly aria-label="Agent开发模板预览" />
-              <div class="actions"><el-button type="primary" @click="config.preferences = agentPreferenceTemplate; preferenceTemplateVisible = false">替换手写偏好（保存后生效）</el-button><el-button @click="preferenceTemplateVisible = false">取消</el-button></div>
-            </section>
-            <el-form-item data-setting="preferences"><template #label><span>手写偏好</span><el-tooltip placement="top" :enterable="false"><template #content><div style="max-width: 340px; line-height: 1.8"><p>模板涵盖多类信息，使用时请按实际需要填写、删减，不必全部保留。</p><p>重点写想做的工作、个人取舍和必要限制。若已勾选简历、筛选条件等资料，不要再把同样内容整段复制到偏好里；未勾选但判断必需的信息，可在这里简要补充。</p><p>提供给模型的资料应简洁、相关，避免堆入过多文本或反复表达同一要求。</p></div></template><button type="button" class="preference-help" aria-label="手写偏好填写说明"><QuestionFilled /></button></el-tooltip></template><el-input v-model="config.preferences" type="textarea" :rows="7" maxlength="20000" /></el-form-item>
-            
-            <el-collapse v-model="feedbackSections" class="quiet-collapse"><el-collapse-item name="feedback"><template #title>反馈学习的偏好 <el-tag size="small" :type="settings.inputSources.feedback ? 'success' : 'info'" style="margin-left: 6px">{{ settings.inputSources.feedback ? '已启用' : '已关闭' }}</el-tag><el-tooltip placement="top" :enterable="false"><template #content><div style="max-width: 350px; line-height: 1.8">根据明确标记，通过 TF-IDF／Rocchio 计算内容偏好，最多调整正负 10 分；大模型生成只读摘要。关闭后仅保存标记，不学习、不影响匹配；重新开启按当前标记重新生成。不能覆盖手写偏好或硬性条件。</div></template><QuestionFilled @click.stop style="width: 14px; height: 14px; margin-left: 6px" aria-label="反馈学习偏好说明" /></el-tooltip></template>
-              <el-input data-setting="feedback" :model-value="config.learnedPreferences || '尚无学习摘要'" type="textarea" :rows="4" readonly />
-              
-            </el-collapse-item></el-collapse>
+
+          <section class="ggr-card mb0">
+            <div class="ggr-card-header">
+              <h3 class="ggr-card-title">
+                自定义求职偏好
+                <el-tooltip placement="top" :enterable="false">
+                  <template #content>
+                    <div style="max-width: 340px; line-height: 1.75">
+                      <p style="margin: 0 0 6px">重点填写期望的业务方向、个人取舍与明确排斥项；套用模板后请按真实情况删改。</p>
+                      <p style="margin: 0">已勾选简历或筛选条件时，无需在此重复抄写相同信息。</p>
+                    </div>
+                  </template>
+                  <button type="button" class="ggr-help-btn" aria-label="自定义偏好填写说明">
+                    <QuestionFilled />
+                  </button>
+                </el-tooltip>
+              </h3>
+              <TemplatePicker kind="job-preferences" :defaults="[{ name: 'AI Agent 开发方向', data: agentPreferenceTemplate }]" :value="config.preferences" @apply="value => config.preferences = value" />
+
+            </div>
+
+
+
+            <el-form-item data-setting="preferences" label="偏好说明" class="mb0">
+              <el-input
+                v-model="config.preferences"
+                type="textarea"
+                :rows="8"
+                maxlength="20000"
+                placeholder="填写希望从事的岗位职责、加分方向与不考虑的岗位类型"
+              />
+            </el-form-item>
+
+            <el-collapse v-model="feedbackSections" class="quiet-collapse mt8">
+              <el-collapse-item name="feedback">
+                <template #title>
+                  <span>历史反馈总结偏好</span>
+                  <el-tag size="small" :type="settings.inputSources.feedback ? 'success' : 'info'" effect="light" style="margin-left: 8px">
+                    {{ settings.inputSources.feedback ? '已启用' : '已关闭' }}
+                  </el-tag>
+                  <el-tooltip placement="top" :enterable="false">
+                    <template #content>
+                      <div style="max-width: 340px; line-height: 1.75">
+                        根据你在「开聊记录」中标记的「喜欢／不喜欢」，自动计算职责内容相似度（最多微调 ±10 分）并由大模型总结偏好摘要。关闭后仅保留标记，不参与匹配计算；不会覆盖自定义偏好或硬性限制。
+                      </div>
+                    </template>
+                    <QuestionFilled style="width: 14px; height: 14px; margin-left: 6px" aria-label="反馈学习偏好说明" @click.stop />
+                  </el-tooltip>
+                </template>
+                <el-input data-setting="feedback" :model-value="config.learnedPreferences || '暂无反馈学习摘要'" type="textarea" :rows="4" readonly />
+              </el-collapse-item>
+            </el-collapse>
           </section>
         </div>
-        <section class="settings-card">
-          <el-collapse v-model="advancedSections" class="quiet-collapse"><el-collapse-item title="提示词与模型输入" name="advanced">
-            <el-form-item data-setting="prompt" label="匹配提示词"><el-input v-model="config.customPrompt" type="textarea" :rows="5" maxlength="20000" /></el-form-item>
-            
-            <el-button :loading="previewLoading" @click="previewInput">预览实际模型输入</el-button>
-            
-          </el-collapse-item></el-collapse>
+
+        <section class="ggr-card mt16">
+          <el-collapse v-model="advancedSections" class="quiet-collapse">
+            <el-collapse-item title="高级设置：自定义评估提示词与查看实际模型输入" name="advanced">
+              <el-form-item data-setting="prompt" label="匹配评估提示词">
+                <el-input v-model="config.customPrompt" type="textarea" :rows="5" maxlength="20000" />
+              </el-form-item>
+              <el-button size="small" :loading="previewLoading" @click="previewInput">预览实际发送给模型的完整载荷</el-button>
+            </el-collapse-item>
+          </el-collapse>
         </section>
-        <div class="save-bar"><span class="muted">{{ saved ? '设置已保存' : '有未保存修改' }}</span><el-button type="primary" :disabled="settings.loading" @click="save">保存匹配设置</el-button></div>
       </el-tab-pane>
-      <el-tab-pane label="岗位测试" name="test">
-        <section class="settings-card">
-          <div class="card-heading"><h3>测试一条岗位</h3><span class="muted">仅评分，不开聊</span></div>
-          <div class="two-fields"><el-form-item label="公司"><el-input v-model="job.company" /></el-form-item><el-form-item label="城市"><el-input v-model="job.city" /></el-form-item></div>
-          <el-form-item label="岗位名称"><el-input v-model="job.jobName" /></el-form-item>
-          <el-form-item label="岗位描述"><el-input v-model="job.postDescription" type="textarea" :rows="6" maxlength="80000" /></el-form-item>
-          <div class="test-actions"><el-button type="primary" :loading="testing" @click="testMatch">开始评分</el-button></div>
-          <div v-if="lastDecision" class="decision-card"><strong>{{ lastDecision.score ?? '—' }}<small>/100</small></strong><div><b>{{ lastDecision.match ? 'AI 判断匹配' : 'AI 未放行' }}</b><p>{{ briefReason(lastDecision.reason) }}</p></div><el-button link type="primary" @click="showDetails(lastDecision)">详情</el-button></div>
-          <p v-else-if="result" role="status">{{ result }}</p>
+
+      <el-tab-pane label="单条岗位测试" name="test">
+        <section class="ggr-card">
+          <div class="ggr-card-header">
+            <h3 class="ggr-card-title">测试单条岗位匹配度</h3>
+            <span class="ggr-card-subtitle">仅调用模型评分，不会发起任何真实沟通</span>
+          </div>
+
+          <div class="two-fields">
+            <el-form-item label="公司名称"><el-input v-model="job.company" placeholder="例如：字节跳动" /></el-form-item>
+            <el-form-item label="工作城市"><el-input v-model="job.city" placeholder="例如：北京 / 上海" /></el-form-item>
+          </div>
+          <el-form-item label="岗位名称"><el-input v-model="job.jobName" placeholder="填写完整岗位名称" /></el-form-item>
+          <el-form-item label="岗位职责与要求（JD）">
+            <el-input v-model="job.postDescription" type="textarea" :rows="6" maxlength="80000" placeholder="粘贴完整的岗位描述与任职要求" />
+          </el-form-item>
+
+          <div class="test-actions">
+            <el-button type="primary" :loading="testing" @click="testMatch">开始评估打分</el-button>
+          </div>
+
+          <div v-if="lastDecision" class="decision-card">
+            <div class="score-num">
+              <strong>{{ lastDecision.score ?? '—' }}</strong><small>/100</small>
+            </div>
+            <div class="decision-body">
+              <div class="decision-title">
+                <el-tag size="small" :type="lastDecision.match ? 'success' : 'info'" effect="light">
+                  {{ lastDecision.match ? '匹配通过' : 'AI 判定不匹配' }}
+                </el-tag>
+              </div>
+              <p>{{ briefReason(lastDecision.reason) }}</p>
+            </div>
+            <el-button link type="primary" @click="showDetails(lastDecision)">查看详情</el-button>
+          </div>
+          <p v-else-if="result" class="muted mt8" role="status">{{ result }}</p>
         </section>
-        <section class="settings-card">
-          <div class="card-heading"><h3>最近评分示例</h3></div>
+
+        <section class="ggr-card">
+          <div class="ggr-card-header">
+            <h3 class="ggr-card-title">最近评分记录示例</h3>
+          </div>
           <el-table v-if="examples.length" :data="examples" style="width: 100%" table-layout="fixed">
-            <el-table-column label="岗位" min-width="200"><template #default="scope"><b>{{ scope.row.jobName }}</b><div class="muted">{{ scope.row.company }}</div></template></el-table-column>
-            <el-table-column prop="score" label="分数" width="70" />
-            <el-table-column label="AI 判断" width="95"><template #default="scope"><el-tag size="small" :type="scope.row.match ? 'success' : 'info'" effect="light">{{ scope.row.match ? '匹配' : '未放行' }}</el-tag></template></el-table-column>
-            <el-table-column label="简要理由" min-width="170"><template #default="scope">{{ briefReason(scope.row.reason) }}</template></el-table-column>
-            <el-table-column label="" width="65"><template #default="scope"><el-button link type="primary" @click="showDetails(scope.row)">详情</el-button></template></el-table-column>
-          </el-table><el-empty v-else description="尚无评分示例" :image-size="65" />
+            <el-table-column label="岗位" min-width="200">
+              <template #default="scope">
+                <b>{{ scope.row.jobName }}</b>
+                <div class="muted">{{ scope.row.company }}</div>
+              </template>
+            </el-table-column>
+            <el-table-column prop="score" label="分数" width="75" />
+            <el-table-column label="评估结论" width="105">
+              <template #default="scope">
+                <el-tag size="small" :type="scope.row.match ? 'success' : 'info'" effect="light">
+                  {{ scope.row.match ? '匹配通过' : '不匹配' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="简要依据" min-width="180">
+              <template #default="scope">{{ briefReason(scope.row.reason) }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="70">
+              <template #default="scope">
+                <el-button link type="primary" @click="showDetails(scope.row)">详情</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+          <el-empty v-else description="暂无评分记录" :image-size="60" />
         </section>
       </el-tab-pane>
     </el-tabs>
-    <el-drawer v-model="detailsVisible" title="岗位匹配详情" size="min(720px, 90vw)" append-to-body>
+
+    <el-drawer v-model="detailsVisible" title="岗位匹配评估详情" size="min(720px, 90vw)" append-to-body>
       <div v-if="selectedResult" class="result-details">
         <h3>{{ selectedResult.company }} · {{ selectedResult.jobName }}</h3>
-        <p>评分 {{ selectedResult.score ?? '未评分' }}/100 · {{ selectedResult.model || '未运行' }}</p>
-        <p v-if="selectedResult.baseScore != null">基础分 {{ selectedResult.baseScore }} · 偏好调整 {{ selectedResult.feedbackAdjustment > 0 ? '+' : '' }}{{ selectedResult.feedbackAdjustment }}</p>
-        <p v-if="selectedResult.feedbackRecommendation">内容推荐：{{ selectedResult.feedbackRecommendation.algorithm }} · {{ selectedResult.feedbackRecommendation.feedbackCount }} 条明确反馈</p>
-        <h4>判断依据</h4><p>{{ selectedResult.reason }}</p><h4>综合条件</h4><p>{{ (selectedResult.criteriaSummary || []).join('\n') }}</p>
-        <h4>差异与待确认</h4><p>{{ (selectedResult.gaps || []).join('\n') || '未列出' }}</p>
-        <template v-if="selectedResult.description"><h4>岗位描述</h4><p>{{ selectedResult.description }}</p></template>
+        <p>综合评分：{{ selectedResult.score ?? '未评分' }}/100 · 模型：{{ selectedResult.model || '未记录' }}</p>
+        <p v-if="selectedResult.baseScore != null">
+          模型基础分 {{ selectedResult.baseScore }} · 历史反馈微调 {{ selectedResult.feedbackAdjustment > 0 ? '+' : '' }}{{ selectedResult.feedbackAdjustment }}
+        </p>
+        <h4>评估依据</h4>
+        <p>{{ selectedResult.reason }}</p>
+        <h4>关键条件摘要</h4>
+        <p>{{ (selectedResult.criteriaSummary || []).join('\n') || '无' }}</p>
+        <h4>差异与待确认项</h4>
+        <p>{{ (selectedResult.gaps || []).join('\n') || '无明显差异' }}</p>
+        <template v-if="selectedResult.description">
+          <h4>岗位描述原文</h4>
+          <p>{{ selectedResult.description }}</p>
+        </template>
         <p v-if="selectedResult.source" class="muted">{{ selectedResult.source }} · {{ selectedResult.evaluatedAt }}</p>
       </div>
     </el-drawer>
-    <el-drawer v-model="inputPreviewVisible" title="预览实际模型输入" size="min(940px, 94vw)" append-to-body><JobModelInputPreview v-if="inputPreview" :payload="inputPreview" :saved-context="filterContext" /></el-drawer>
+
+    <el-drawer v-model="inputPreviewVisible" title="实际发送给大模型的输入载荷" size="min(940px, 94vw)" append-to-body>
+      <JobModelInputPreview v-if="inputPreview" :payload="inputPreview" :saved-context="filterContext" />
+    </el-drawer>
   </section>
 </template>
+
 <script setup lang="ts">
 import JobFilterMode from '@renderer/features/JobFilterMode/index.vue'
 import JobModelInputPreview from '@renderer/features/JobModelInputPreview/index.vue'
 import { useJobFilterSettings } from '@renderer/store/job-filter-settings'
-import { QuestionFilled, ArrowDown } from '@element-plus/icons-vue'
+import { QuestionFilled } from '@element-plus/icons-vue'
 import { agentPreferenceTemplate } from './preference-template'
+import TemplatePicker from '@renderer/features/PersonalTemplates/TemplatePicker.vue'
 import { ref, onMounted, onActivated, watch, nextTick } from 'vue'
+import { useAutoSave } from '@renderer/composables/useAutoSave'
 import { ElMessage } from 'element-plus'
 import { useRoute } from 'vue-router'
+
 const route = useRoute()
 const advancedSections = ref<string[]>([])
 const feedbackSections = ref<string[]>([])
-const preferenceTemplateVisible = ref(false)
 const pageRoot = ref<HTMLElement>()
+
 async function revealSetting() {
   const focus = String(route.query.focus || '')
-  if (!['resume', 'preferences', 'prompt', 'scope', 'feedback', 'ai-jobName', 'ai-postDescription', ...inputOptions.map(item => 'input-' + item.key)].includes(focus)) return
+  if (
+    ![
+      'resume',
+      'preferences',
+      'prompt',
+      'scope',
+      'feedback',
+      'ai-jobName',
+      'ai-postDescription',
+      ...inputOptions.map((item) => 'input-' + item.key)
+    ].includes(focus)
+  )
+    return
   inputPreviewVisible.value = false
   activeTab.value = 'settings'
   if (focus === 'prompt') advancedSections.value = ['advanced']
@@ -122,39 +308,93 @@ async function revealSetting() {
   const input = section?.querySelector<HTMLElement>('textarea, input, button') || section
   input?.focus({ preventScroll: true })
 }
+
 const settings = useJobFilterSettings()
-const config = ref({ enabled: false, resumeFileName: '', resumeFileId: '', resumeText: '', preferences: '', learnedPreferences: '', feedbackLearnedAt: '', resumeSourceText: '', resumeParsingNotes: [] as string[], resumeParseMethod: '', resumeParseModel: '', customPrompt: '', inputSources: { resume: true, preferences: true, employmentAndTraversal: true, regexRules: false, pageFilters: false, companyRules: false, feedback: true } as Record<string, boolean> })
+
+const config = ref({
+  enabled: false,
+  resumeFileName: '',
+  resumeFileId: '',
+  resumeText: '',
+  preferences: '',
+  learnedPreferences: '',
+  feedbackLearnedAt: '',
+  resumeSourceText: '',
+  resumeParsingNotes: [] as string[],
+  resumeParseMethod: '',
+  resumeParseModel: '',
+  customPrompt: '',
+  inputSources: {
+    resume: true,
+    preferences: true,
+    employmentAndTraversal: true,
+    regexRules: false,
+    pageFilters: false,
+    companyRules: false,
+    feedback: true
+  } as Record<string, boolean>
+})
 const job = ref({ jobName: '', postDescription: '', company: '', city: '' })
-const saved = ref(false)
 const importing = ref(false)
 const activeTab = ref('settings')
 const previewing = ref(false)
+
 async function previewResume() {
   previewing.value = true
-  try { await window.electron.ipcRenderer.invoke('preview-job-ai-resume', config.value.resumeFileId) }
-  catch (error) { ElMessage.error(String(error)) }
-  finally { previewing.value = false }
+  try {
+    await window.electron.ipcRenderer.invoke('preview-job-ai-resume', config.value.resumeFileId)
+  } catch (error) {
+    ElMessage.error(String(error))
+  } finally {
+    previewing.value = false
+  }
 }
+
 const parsing = ref(false)
 const testing = ref(false)
 const result = ref('')
 const lastDecision = ref<any>(null)
 const detailsVisible = ref(false)
 const selectedResult = ref<any>(null)
-function briefReason(reason: string) { return reason?.length > 55 ? reason.slice(0, 55) + '…' : reason }
-function showDetails(row: any) { selectedResult.value = row; detailsVisible.value = true }
+function briefReason(reason: string) {
+  return reason?.length > 65 ? reason.slice(0, 65) + '…' : reason
+}
+function showDetails(row: any) {
+  selectedResult.value = row
+  detailsVisible.value = true
+}
 
 const modelInfo = ref({ provider: '读取中', model: '', account: '', reasoningEffort: '' })
-const inputOptions = [{key: 'resume', label: '我的简历内容'}, {key: 'preferences', label: '我的求职偏好'}, {key: 'regexRules', label: '公共正则条件'}, {key: 'employmentAndTraversal', label: '求职类型与遍历方式'}, {key: 'pageFilters', label: '城市、经验、学历等条件'}, {key: 'companyRules', label: '公司名单与屏蔽规则'}, {key: 'feedback', label: '反馈学习（喜欢／不喜欢）'}]
+const inputOptions = [
+  { key: 'resume', label: '我的简历正文' },
+  { key: 'preferences', label: '自定义求职偏好' },
+  { key: 'regexRules', label: '公共正则筛选条件' },
+  { key: 'employmentAndTraversal', label: '求职类型与条件组合方式' },
+  { key: 'pageFilters', label: '城市、经验、学历等页面条件' },
+  { key: 'companyRules', label: '期望公司与屏蔽公司规则' },
+  { key: 'feedback', label: '历史反馈学习（喜欢／不喜欢）' }
+]
 const inputPreview = ref<Record<string, any> | null>(null)
 const inputPreviewVisible = ref(false)
 const previewLoading = ref(false)
+
 async function previewInput() {
   previewLoading.value = true
-  try { inputPreview.value = await window.electron.ipcRenderer.invoke('preview-job-ai-input', JSON.parse(JSON.stringify({...config.value, inputSources: settings.inputSources, job: job.value}))); inputPreviewVisible.value = true }
-  catch (error) { ElMessage.error(String(error)) }
-  finally { previewLoading.value = false }
+  try {
+    inputPreview.value = await window.electron.ipcRenderer.invoke(
+      'preview-job-ai-input',
+      JSON.parse(
+        JSON.stringify({ ...config.value, inputSources: settings.inputSources, job: job.value })
+      )
+    )
+    inputPreviewVisible.value = true
+  } catch (error) {
+    ElMessage.error(String(error))
+  } finally {
+    previewLoading.value = false
+  }
 }
+
 const filterContext = ref<Record<string, any>>({})
 const examples = ref<any[]>([])
 async function refreshInfo() {
@@ -172,44 +412,89 @@ async function refreshInfo() {
   await settings.refresh()
 }
 
-watch(() => ({ resumeFileId: config.value.resumeFileId, resumeText: config.value.resumeText, resumeSourceText: config.value.resumeSourceText, preferences: config.value.preferences, customPrompt: config.value.customPrompt, inputSources: config.value.inputSources }), () => { saved.value = false }, { deep: true })
 let mounted = false
-onActivated(() => { if (mounted) refreshInfo().then(revealSetting).catch(error => ElMessage.error(String(error))) })
-watch(() => route.query.focus, () => { if (mounted) revealSetting() })
-onMounted(async () => {
-  try { config.value = await window.electron.ipcRenderer.invoke('get-job-ai-match'); await refreshInfo(); await revealSetting() }
-  catch (error) { ElMessage.error(String(error)) }
-  finally { mounted = true }
+let loaded = false
+const autosave = useAutoSave(
+  () => ({
+    resumeFileId: config.value.resumeFileId,
+    resumeFileName: config.value.resumeFileName,
+    resumeText: config.value.resumeText,
+    resumeSourceText: config.value.resumeSourceText,
+    resumeParsingNotes: config.value.resumeParsingNotes,
+    resumeParseMethod: config.value.resumeParseMethod,
+    resumeParseModel: config.value.resumeParseModel,
+    preferences: config.value.preferences,
+    customPrompt: config.value.customPrompt
+  }),
+  (value) =>
+    window.electron.ipcRenderer.invoke(
+      'save-job-ai-match',
+      JSON.parse(JSON.stringify({ ...value, inputSources: settings.inputSources }))
+    ),
+  () => loaded
+)
+
+onActivated(() => {
+  if (mounted) refreshInfo().then(revealSetting).catch((error) => ElMessage.error(String(error)))
 })
+watch(
+  () => route.query.focus,
+  () => {
+    if (mounted) revealSetting()
+  }
+)
+onMounted(async () => {
+  try {
+    config.value = await window.electron.ipcRenderer.invoke('get-job-ai-match')
+    await refreshInfo()
+    await revealSetting()
+    await nextTick()
+    loaded = true
+  } catch (error) {
+    ElMessage.error(String(error))
+  } finally {
+    await nextTick()
+    mounted = true
+  }
+})
+
 async function saveInputSources() {
-  try { await settings.save('inputSources'); await refreshInfo() }
-  catch (error) { ElMessage.error(String(error)) }
+  try {
+    await settings.save('inputSources')
+    await refreshInfo()
+  } catch (error) {
+    ElMessage.error(String(error))
+  }
 }
 async function importResume() {
   importing.value = true
   try {
     const resume = await window.electron.ipcRenderer.invoke('import-job-ai-resume')
     if (resume) Object.assign(config.value, resume)
-  } catch (error) { ElMessage.error(String(error)) }
-  finally { importing.value = false }
+  } catch (error) {
+    ElMessage.error(String(error))
+  } finally {
+    importing.value = false
+  }
 }
 async function parseText() {
   parsing.value = true
   try {
-    const parsed = await window.electron.ipcRenderer.invoke('parse-job-ai-resume-text', config.value.resumeText)
+    const parsed = await window.electron.ipcRenderer.invoke(
+      'parse-job-ai-resume-text',
+      config.value.resumeText
+    )
     Object.assign(config.value, parsed)
-    ElMessage.success('AI整理完成，请检查后保存')
-  } catch (error) { ElMessage.error(String(error)) }
-  finally { parsing.value = false }
+    ElMessage.success('简历文本整理完成，已自动保存')
+  } catch (error) {
+    ElMessage.error(String(error))
+  } finally {
+    parsing.value = false
+  }
 }
 async function persist() {
-  const result = await window.electron.ipcRenderer.invoke('save-job-ai-match', JSON.parse(JSON.stringify({ ...config.value, inputSources: settings.inputSources })))
-  if (result?.warning) ElMessage.warning(result.warning)
-  saved.value = true
-}
-async function save() {
-  try { await persist(); ElMessage.success('AI筛选设置已保存') }
-  catch (error) { ElMessage.error(String(error)) }
+  await autosave.flush()
+  if (autosave.lastError.value) throw new Error(autosave.lastError.value)
 }
 async function testMatch() {
   testing.value = true
@@ -217,34 +502,235 @@ async function testMatch() {
   lastDecision.value = null
   try {
     await persist()
-    const decision = await window.electron.ipcRenderer.invoke('test-job-ai-match', JSON.parse(JSON.stringify(job.value)))
-    lastDecision.value = { ...decision, jobName: job.value.jobName, company: job.value.company, description: job.value.postDescription }
-    result.value = `分数：${decision.score ?? '未评分'}/100；模型：${decision.model || '未运行'}\n综合条件：${(decision.criteriaSummary || []).join('；')}\n${decision.match ? '已勾选AI字段匹配' : '不放行'}：${decision.reason}${decision.gaps.length ? '；差异：' + decision.gaps.join('；') : ''}`
-  } catch (error) { result.value = String(error) }
-  finally { testing.value = false }
+    const decision = await window.electron.ipcRenderer.invoke(
+      'test-job-ai-match',
+      JSON.parse(JSON.stringify(job.value))
+    )
+    lastDecision.value = {
+      ...decision,
+      jobName: job.value.jobName,
+      company: job.value.company,
+      description: job.value.postDescription
+    }
+    result.value = `评分：${decision.score ?? '未评分'}/100 · 模型：${decision.model || '未运行'}\n${decision.match ? '匹配通过' : 'AI 判定不匹配'}：${decision.reason}`
+  } catch (error) {
+    result.value = String(error)
+  } finally {
+    testing.value = false
+  }
 }
 </script>
 
 <style scoped lang="scss">
-.ai-match-page { --card-border: var(--el-border-color-light); color: var(--el-text-color-primary); min-width: 0; }
-.preference-template { margin: 12px 0; } .preference-template h4 { margin: 0 0 8px; }
-.preference-help { display: inline-flex; align-items: center; margin-left: 6px; padding: 0; border: 0; background: transparent; color: var(--el-text-color-secondary); cursor: help; } .preference-help svg { width: 14px; height: 14px; } .preference-help:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: 3px; border-radius: 50%; }
-.page-heading, .card-heading, .model-strip, .save-bar, .test-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.page-heading { margin-bottom: 20px; } h2 { margin: 0; font-size: 24px; letter-spacing: -.4px; } h3 { margin: 0; font-size: 16px; } p { line-height: 1.6; }
-.page-heading p, .helper { margin: 6px 0 0; color: var(--el-text-color-secondary); font-size: 13px; }
-.model-strip { justify-content: flex-start; flex-wrap: wrap; padding: 12px 16px; background: var(--el-color-primary-light-9); border: 1px solid var(--el-color-primary-light-8); border-radius: 10px; font-size: 13px; }
-.model-strip .el-button { margin-left: auto; } .model-label { color: var(--el-text-color-secondary); } .model-detail { line-height: 1.8; overflow-wrap: anywhere; }
-.match-tabs { margin-top: 16px; } .settings-card { margin: 0 0 16px; padding: 22px; background: var(--el-bg-color); border: 1px solid var(--card-border); border-radius: 12px; box-shadow: 0 2px 8px rgba(15, 23, 42, .025); min-width: 0; }
-.card-heading { margin-bottom: 16px; } .muted { color: var(--el-text-color-secondary); font-size: 12px; line-height: 1.7; }
-.settings-grid, .two-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
-.field-label { font-size: 13px; margin: 14px 0 8px; color: var(--el-text-color-regular); } .input-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 12px; }
-.input-grid :deep(.el-checkbox) { margin: 0; min-width: 0; } .input-grid :deep(.el-checkbox__label) { white-space: normal; font-size: 13px; }
-.actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 16px; } .actions .el-button + .el-button { margin-left: 0; }
-.resume-file { max-width: 100%; height: auto; min-height: 28px; } .resume-file :deep(span) { white-space: normal; overflow-wrap: anywhere; text-align: left; line-height: 1.6; } .file-action { margin-left: 12px; font-size: 12px; }
-.quiet-collapse { border: 0; } .quiet-collapse :deep(.el-collapse-item__header) { font-size: 13px; height: 38px; line-height: 1.5; border: 0; background: transparent; } .quiet-collapse :deep(.el-collapse-item__wrap) { border: 0; }
-pre { max-height: 300px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; border-radius: 8px; background: var(--el-fill-color-light); font-size: 12px; line-height: 1.7; }
-.save-bar { padding: 4px 0 20px; } .test-actions { flex-wrap: wrap; } .test-actions p { margin: 0; } .decision-card { display: flex; align-items: center; gap: 18px; margin-top: 20px; padding: 18px; border-radius: 10px; background: var(--el-fill-color-light); } .decision-card > strong { font-size: 32px; color: var(--el-color-primary); white-space: nowrap; } .decision-card small { font-size: 13px; color: var(--el-text-color-secondary); } .decision-card p { margin: 4px 0 0; font-size: 13px; } .decision-card > .el-button { margin-left: auto; } .result-details { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; }
-.prompt-helper { margin: -8px 0 14px; }
-@media (max-width: 1080px) { .settings-grid { grid-template-columns: minmax(0, 1fr); } .input-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 640px) { .settings-card { padding: 16px; } .two-fields, .input-grid { grid-template-columns: minmax(0, 1fr); } }
+.ai-match-page {
+  color: var(--el-text-color-primary);
+  min-width: 0;
+}
+
+.model-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background-color: var(--el-color-primary-light-9);
+  border: 1px solid var(--el-color-primary-light-8);
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.model-label {
+  color: var(--el-text-color-secondary);
+}
+
+.model-detail {
+  line-height: 1.75;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.match-tabs {
+  margin-top: 14px;
+}
+
+.field-label {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 14px 0 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--el-border-color-lighter);
+  color: var(--el-text-color-primary);
+}
+
+.input-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px 14px;
+
+  :deep(.el-checkbox) {
+    margin: 0;
+    min-width: 0;
+    height: auto;
+    min-height: 28px;
+  }
+
+
+  :deep(.el-checkbox__label) {
+    white-space: normal;
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+}
+
+.settings-grid,
+.two-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 980px) {
+  .settings-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .input-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .two-fields,
+  .input-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+
+  .el-button + .el-button {
+    margin-left: 0;
+  }
+}
+
+.preference-template {
+  margin-bottom: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  background-color: var(--el-fill-color-lighter);
+  border: 1px solid var(--el-border-color-lighter);
+}
+
+.template-box-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.quiet-collapse {
+  border: 0;
+
+  :deep(.el-collapse-item__header) {
+    font-size: 12.5px;
+    height: 36px;
+    line-height: 1.5;
+    border: 0;
+    background: transparent;
+    color: var(--el-text-color-secondary);
+  }
+
+  :deep(.el-collapse-item__wrap) {
+    border: 0;
+    background: transparent;
+  }
+}
+
+pre {
+  max-height: 280px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 12px;
+  border-radius: 8px;
+  background-color: var(--el-fill-color-light);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.muted {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.decision-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 16px;
+  padding: 16px 18px;
+  border-radius: 10px;
+  background-color: var(--el-fill-color-lighter);
+  border: 1px solid var(--el-border-color-light);
+}
+
+.score-num {
+  white-space: nowrap;
+
+  strong {
+    font-size: 28px;
+    color: var(--el-color-primary);
+  }
+
+  small {
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+    margin-left: 2px;
+  }
+}
+
+.decision-body {
+  flex: 1;
+  min-width: 0;
+
+  p {
+    margin: 6px 0 0;
+    font-size: 13px;
+    color: var(--el-text-color-regular);
+  }
+}
+
+.result-details {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.75;
+  font-size: 13.5px;
+
+  h3 {
+    margin-top: 0;
+  }
+
+  h4 {
+    margin: 14px 0 6px;
+  }
+}
+
+.mb0 {
+  margin-bottom: 0;
+}
+
+.mt8 {
+  margin-top: 8px;
+}
+
+.mt16 {
+  margin-top: 16px;
+}
 </style>

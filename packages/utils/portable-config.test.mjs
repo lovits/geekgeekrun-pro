@@ -7,7 +7,9 @@ test('portable settings keep preferences while excluding secrets and device path
     'boss.json': { expectEmploymentType: 1902, autoReminder: { geminiApiKey: 'secret' } },
     'job-ai-match.json': { preferences: 'Agent', resumeText: 'resume', resumeFileId: 'local-file' },
     'llm.json': [{ id: 'a', provider: 'pi-cli', model: 'model', providerApiSecret: 'key', piBinaryPath: '/Users/a/pi', piDetectionMode: 'manual', providerCompleteApiUrl: 'https://example.com/v1' }],
-    'target-company-list.json': ['company']
+    'target-company-list.json': ['company'],
+    'hr-auto-reply.json': { personalProfile: '真实背景', autoSendResume: true, resumeName: '简历.pdf' },
+    'auto-chat-schedule.json': { enabled: true, weekdays: [1, 2], morning: { enabled: true, start: '09:00', end: '12:00' }, afternoon: { enabled: false, start: '14:00', end: '18:00' } }
   }
   const bundle = exportPortableConfig(current)
   assert.equal(bundle.files['boss.json'].autoReminder.geminiApiKey, undefined)
@@ -23,6 +25,9 @@ test('portable settings keep preferences while excluding secrets and device path
   assert.equal(imported['job-ai-match.json'].resumeFileId, '')
   assert.equal(imported['job-ai-match.json'].preferences, 'Agent')
   assert.deepEqual(imported['target-company-list.json'], ['company'])
+  assert.deepEqual(imported['hr-auto-reply.json'], { ...current['hr-auto-reply.json'], resumeFileId: '', resumeSha256: '', resumeBinding: null })
+  assert.equal(imported['auto-chat-schedule.json'].enabled, false)
+  assert.deepEqual(imported['auto-chat-schedule.json'].weekdays, [1, 2])
   assert.equal(preparePortableImport(bundle, {})['llm.json'][0].providerApiSecret, '')
 })
 

@@ -1,21 +1,22 @@
 import { BrowserWindow } from 'electron'
 import path from 'path'
 import { URL } from 'node:url'
+import { windowBackgroundColor } from '../utils/theme'
 
 export let readNoReplyReminderLlmMockWindow: BrowserWindow | null = null
 export function createReadNoReplyReminderLlmMockWindow(
   opt?: Electron.BrowserWindowConstructorOptions,
   { autoReminderConfig }: { autoReminderConfig?: Record<string, unknown> } = {}
 ): BrowserWindow {
-  // Create the browser window.
-  if (readNoReplyReminderLlmMockWindow) {
-    readNoReplyReminderLlmMockWindow!.show()
+  if (readNoReplyReminderLlmMockWindow && !readNoReplyReminderLlmMockWindow.isDestroyed()) {
+    readNoReplyReminderLlmMockWindow.close()
   }
   readNoReplyReminderLlmMockWindow = new BrowserWindow({
     width: 600,
     height: 800,
     resizable: false,
     show: false,
+    backgroundColor: windowBackgroundColor(),
     autoHideMenuBar: true,
     frame: true,
     webPreferences: {

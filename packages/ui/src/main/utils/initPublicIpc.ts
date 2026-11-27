@@ -1,3 +1,4 @@
+import { configSaveHandler, waitForConfigSaves, validateConfigRegex } from '../features/config-save'
 import { companyListMemberships, setCompanyListMembership } from '@geekgeekrun/utils/company-list-actions.mjs'
 import { jobFilterOptions } from '@geekgeekrun/utils/job-filter-options.mjs'
 import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
@@ -6,6 +7,8 @@ import { projectUrl } from '@geekgeekrun/utils/project-links.mjs'
 import buildInfo from '../../common/build-info.json'
 import os from 'node:os'
 import fs from 'node:fs'
+import path from 'node:path'
+import { readPersonalTemplates, savePersonalTemplate, deletePersonalTemplate, initializePersonalTemplates } from '@geekgeekrun/utils/personal-templates.mjs'
 import {
   ensureStorageFileExist,
   writeStorageFile,
@@ -14,18 +17,25 @@ import {
   readStorageFile,
   writeConfigFile
 } from '@geekgeekrun/geek-auto-start-chat-with-boss/runtime-file-utils.mjs'
+import { configFolderPath } from '@geekgeekrun/geek-auto-start-chat-with-boss/runtime-file-utils.mjs'
 
 import { registerBrowserAssistantIpc } from '../window/browserAssistantWindow'
 
 export default function initPublicIpc() {
   registerBrowserAssistantIpc()
+  const templatePath = path.join(configFolderPath, 'personal-templates.json')
+  ipcMain.handle('list-personal-templates', async () => { await waitForConfigSaves(); return readPersonalTemplates(templatePath) })
+  configSaveHandler('initialize-personal-templates', (_, { kind, defaults }) => initializePersonalTemplates(templatePath, kind, defaults))
+  configSaveHandler('save-personal-template', (_, entry) => savePersonalTemplate(templatePath, entry))
+  configSaveHandler('delete-personal-template', (_, entry) => deletePersonalTemplate(templatePath, entry))
   let companyWrites = Promise.resolve()
   const queueCompanyWrite = action => {
     const operation = companyWrites.catch(() => {}).then(action)
     companyWrites = operation.then(() => {}, () => {})
     return operation
   }
-  ipcMain.handle('save-common-job-condition-config', (event, payload, { embedded = false } = {}) => queueCompanyWrite(async () => {
+  configSaveHandler('save-common-job-condition-config', (event, payload, { embedded = false } = {}) => queueCompanyWrite(async () => {
+    validateConfigRegex(payload)
     payload = { ...readConfigFile('common-job-condition-config.json'), ...payload }
     await writeConfigFile('common-job-condition-config.json', payload)
     for (const win of BrowserWindow.getAllWindows()) win.webContents.send('common-job-condition-config-updated', { config: payload, memberships: companyListMemberships({ common: payload, boss: readConfigFile('boss.json'), targets: readConfigFile('target-company-list.json') }) })
@@ -145,6 +155,7 @@ export default function initPublicIpc() {
   })
 
   ipcMain.handle('fetch-config-file-content', async () => {
+    await waitForConfigSaves()
     const configFileContentList = configFileNameList.map((fileName) => {
       return readConfigFile(fileName)
     })

@@ -53,7 +53,7 @@ onMounted(async () => {
     if (err instanceof Error && err.message.includes('NEED_TO_CHECK_RUNTIME_DEPENDENCIES')) {
       gtagRenderer('gascwb_cannot_run_for_corrupt')
       ElMessage.error({
-        message: `核心组件损坏，正在尝试修复`
+        message: `运行环境需要重新初始化，正在返回检查页面…`
       })
       router.replace('/')
     }

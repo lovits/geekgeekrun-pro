@@ -5,7 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { piSearchPaths, resolvePiBinary, listPiModels, piCompletion } from './pi-request.mjs'
 
-async function fixture(t) {
+async function fixture(t, expectedExtension = '') {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'pi interface '))
   t.after(() => fs.rm(directory, { recursive: true, force: true }))
   const script = path.join(directory, 'cli.mjs')
@@ -13,6 +13,8 @@ async function fixture(t) {
     import fs from 'node:fs';
     const args=process.argv.slice(2);
     if (!['--no-tools','--no-extensions','--no-context-files','--no-session'].every(x=>args.includes(x))) process.exit(9);
+    const expectedExtension=${JSON.stringify(expectedExtension)};
+    if(expectedExtension && (args[args.indexOf('--extension')+1]!==expectedExtension || !fs.existsSync(expectedExtension))) process.exit(8);
     const model={provider:'test',id:'model',name:'Model',reasoning:true,contextWindow:16000,thinkingLevelMap:{xhigh:null,max:'max'}};
     if(args.includes('rpc')) {
       let data='';process.stdin.on('data',chunk=>{data+=chunk;let i;while((i=data.indexOf('\\n'))>=0){const m=JSON.parse(data.slice(0,i));data=data.slice(i+1);console.log(JSON.stringify({id:m.id,type:'response',success:true,data:m.type==='get_state'?{model,thinkingLevel:'low'}:{models:[model]}}))}});
@@ -61,4 +63,21 @@ test('Pi failures do not expose model diagnostics, and arbitrary context overrid
   await assert.rejects(piCompletion([{role:'user',content:'empty'}], 'test/model', settings), /正文/)
   await assert.rejects(piCompletion([{role:'user',content:'test'}], 'test/model', {...settings,contextWindowTokens:8000}), /原生上下文/)
   await assert.rejects(resolvePiBinary({piDetectionMode:'manual',piBinaryPath:'relative'}), /完整路径/)
+})
+
+test('installed Antigravity provider is explicitly loaded for model discovery and requests without enabling other extensions', async t => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'pi provider '))
+  const previous = process.env.PI_CODING_AGENT_DIR
+  t.after(async () => {
+    if (previous === undefined) delete process.env.PI_CODING_AGENT_DIR
+    else process.env.PI_CODING_AGENT_DIR = previous
+    await fs.rm(directory, { recursive: true, force: true })
+  })
+  process.env.PI_CODING_AGENT_DIR = directory
+  const extension = path.join(directory, 'npm', 'node_modules', 'pi-antigravity', 'src', 'index.ts')
+  await fs.mkdir(path.dirname(extension), { recursive: true })
+  await fs.writeFile(extension, '// fake provider entry')
+  const settings = await fixture(t, extension)
+  assert.equal((await listPiModels(settings))[0].id, 'test/model')
+  assert.equal((await piCompletion([{ role: 'user', content: 'provider test' }], 'test/model', settings)).choices[0].message.content, 'provider test images=0')
 })

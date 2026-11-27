@@ -1,3 +1,4 @@
+import { checkAutoChatTime } from '@geekgeekrun/utils/auto-chat-schedule-store.mjs'
 import DingtalkPlugin from '@geekgeekrun/dingtalk-plugin/index.mjs'
 import { app, dialog } from 'electron'
 import { SyncHook, AsyncSeriesHook } from 'tapable'
@@ -82,7 +83,7 @@ const runAutoChat = async () => {
     await dialog.showMessageBox({
       type: `error`,
       message: `未找到可用的浏览器`,
-      detail: `请重新运行本程序，按照提示安装、配置浏览器`
+      detail: `请前往「浏览器设置」自动检测、下载或手动选择 Chrome / Edge 浏览器`
     })
     sendToDaemon({
       type: 'worker-to-gui-message',
@@ -154,6 +155,7 @@ const runAutoChat = async () => {
 
   while (true) {
     try {
+      if (!isSimulation) checkAutoChatTime()
       const result = await mainLoop(hooks, isSimulation ? { simulationLimit } : {})
       if (isSimulation) {
         await updateSimulation({ ...result, running: false })
@@ -161,6 +163,7 @@ const runAutoChat = async () => {
         return
       }
     } catch (err) {
+      if (!isSimulation && err instanceof Error && 'code' in err && err.code === 'AUTO_CHAT_SCHEDULE_CLOSED') { await closeBrowserWindow(); app.exit(AUTO_CHAT_ERROR_EXIT_CODE.SCHEDULE_CLOSED); return }
       if ((err as any)?.code === 'LOCAL_REJECTION_SAVE_FAILED') {
         await dialog.showMessageBox({ type: 'error', message: '本地记录保存失败', detail: String(err) })
         app.exit(1)

@@ -1,19 +1,22 @@
 import { BrowserWindow } from 'electron'
 import path from 'path'
+import { windowBackgroundColor } from '../utils/theme'
 
 export let commonJobConditionConfigWindow: BrowserWindow | null = null
 export function createCommonJobConditionConfigWindow(
   opt?: Electron.BrowserWindowConstructorOptions
 ): BrowserWindow {
-  // Create the browser window.
-  if (commonJobConditionConfigWindow) {
-    commonJobConditionConfigWindow!.show()
+  if (commonJobConditionConfigWindow && !commonJobConditionConfigWindow.isDestroyed()) {
+    commonJobConditionConfigWindow.show()
+    commonJobConditionConfigWindow.focus()
+    return commonJobConditionConfigWindow
   }
   commonJobConditionConfigWindow = new BrowserWindow({
     width: 1024,
     height: 768,
     resizable: false,
     show: false,
+    backgroundColor: windowBackgroundColor(),
     autoHideMenuBar: true,
     frame: true,
     webPreferences: {

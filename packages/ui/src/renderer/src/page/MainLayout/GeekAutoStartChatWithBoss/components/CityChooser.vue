@@ -7,9 +7,8 @@
     ></slot>
     <el-dialog
       v-model="isDialogVisible"
-      width="1000px"
-      title="请选择城市"
-      :show-close="false"
+      width="min(920px, 94vw)"
+      title="选择城市"
       append-to-body
       @open="handleDialogOpen"
       @closed="handleDialogClosed"
@@ -59,7 +58,7 @@
           :key="it"
           :style="{ height: '300px', overflow: 'auto' }"
           :label="it"
-          :value="it"
+          :name="it"
         >
           <div v-for="group in cityGroupsByAlphabetMap.get(it)" :key="group.firstChar">
             <div pt4px pb4px>{{ group.firstChar }}</div>
@@ -112,12 +111,13 @@
                 <el-button
                   v-if="multiple && selectedCities?.length"
                   type="danger"
+                  plain
                   size="small"
                   @click="handleClearSelectedCitiesInDialog"
-                  >清空已选择的所有城市</el-button
+                  >清空已选</el-button
                 >
                 <template v-if="!multiple">
-                  <span ml6px font-size-13px class="color-#999">已选择：</span>
+                  <span ml6px font-size-13px style="color: var(--el-text-color-secondary)">已选择：</span>
                   <el-tag
                     closable
                     @close="
@@ -134,7 +134,7 @@
                 </template>
               </div>
               <div v-if="multiple" flex flex-1 flex-wrap gap-6px of-auto max-h-160px>
-                <span font-size-13px class="color-#999" flex items-center>已选择：</span>
+                <span font-size-13px style="color: var(--el-text-color-secondary)" flex items-center>已选择：</span>
                 <el-tag
                   v-for="(city, index) in selectedCities"
                   :key="city"

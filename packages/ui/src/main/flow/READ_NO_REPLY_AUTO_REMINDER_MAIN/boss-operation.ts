@@ -1,3 +1,5 @@
+import { sendToDaemon } from '../OPEN_SETTING_WINDOW/connect-to-daemon'
+import { canSendFollowup } from '@geekgeekrun/utils/auto-reply-controller.mjs'
 import { Page } from 'puppeteer'
 import { sleepWithRandomDelay, sleep } from '@geekgeekrun/utils/sleep.mjs'
 import { completes } from '@geekgeekrun/utils/gpt-request.mjs'
@@ -12,6 +14,13 @@ import { SINGLE_ITEM_DEFAULT_SERVE_WEIGHT } from '../../../common/constant'
 import { LlmModelUsageRecord } from '@geekgeekrun/sqlite-plugin/dist/entity/LlmModelUsageRecord'
 import gtag from '../../utils/gtag'
 
+async function followupAllowed(page: Page) {
+  const status = await sendToDaemon({ type: 'get-status' }, { needCallback: true })
+  if (!status?.workers?.some(worker => worker.workerId === 'geekAutoStartWithBossMain')) return false
+  const last = await page.evaluate(() => (document.querySelector('.message-content .chat-record') as any)?.__vue__?.list$?.at(-1))
+  return canSendFollowup(readConfigFile('boss.json')?.autoReminder, last)
+}
+
 export const sendLookForwardReplyEmotion = async (page: Page) => {
   const emotionEntryButtonProxy = await page.$('.chat-conversation .message-controls .btn-emotion')
   await emotionEntryButtonProxy!.click()
@@ -24,7 +33,9 @@ export const sendLookForwardReplyEmotion = async (page: Page) => {
   const lookForwardReplyEmojiProxy = await page.$(
     `.chat-conversation .message-controls .emotion .emotion-box img[title=盼回复]`
   )
+  if (!await followupAllowed(page)) return false
   await lookForwardReplyEmojiProxy!.click()
+  return true
 }
 
 const pickLlmConfigFromList = (llmConfigList, blockModelSet) => {
@@ -261,10 +272,10 @@ export const requestNewMessageContent = async (
         model: llmConfig?.model,
         providerCompleteApiUrl: llmConfig?.providerCompleteApiUrl
       })
-      throw new Error(`empty content. ${res?.message?.content}`)
+      throw new Error(`模型返回内容为空：${res?.message?.content ?? ''}`)
     }
   } catch (err) {
-    throw new Error(`fail to parse response. ${(err instanceof Error ? err.message : undefined)} ${res?.message?.content}`)
+    throw new Error(`模型返回结果解析失败：${(err instanceof Error ? err.message : '')} ${res?.message?.content ?? ''}`)
   }
   return {
     responseText: textToSend,
@@ -283,8 +294,10 @@ export async function getGptContent(chatRecords) {
 }
 
 export async function sendMessage(page: Page, textToSend: string) {
+  if (!await followupAllowed(page)) return false
   const chatInputSelector = `.chat-conversation .message-controls .chat-input`
   const chatInputHandle = (await page.$(chatInputSelector))!
+  if (!chatInputHandle) return false
   await chatInputHandle.click()
   await sleep(500)
   await chatInputHandle.click()
@@ -293,5 +306,15 @@ export async function sendMessage(page: Page, textToSend: string) {
   })
   await sleep(1000)
   const sendButtonSelector = `.chat-conversation .message-controls .chat-op .btn-send:not(.disabled)`
+  if (!await followupAllowed(page)) {
+    await chatInputHandle.evaluate((el, expected) => {
+      if (el.textContent === expected) {
+        el.textContent = ''
+        el.dispatchEvent(new Event('input', { bubbles: true }))
+      }
+    }, textToSend).catch(() => {})
+    return false
+  }
   await page.click(sendButtonSelector)
+  return true
 }

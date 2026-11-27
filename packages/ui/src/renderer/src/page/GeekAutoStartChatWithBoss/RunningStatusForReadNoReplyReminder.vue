@@ -3,10 +3,10 @@
     <FlyingCompanyLogoList class="flying-company-logo-list" />
     <div class="tip">
       <article>
-        <h1>👋 已读不回自动复聊正在运行</h1>
+        <h1>👋 已读不回跟进正在运行</h1>
         <p>🍀 祝你求职顺利！</p>
       </article>
-      <el-button :disabled="isStopping" @click="handleStopButtonClick">停止开聊</el-button>
+      <el-button :disabled="isStopping" @click="handleStopButtonClick">停止跟进</el-button>
     </div>
   </div>
 </template>
@@ -52,7 +52,7 @@ onMounted(async () => {
     if (err instanceof Error && err.message.includes('NEED_TO_CHECK_RUNTIME_DEPENDENCIES')) {
       gtagRenderer('rnrr_cannot_run_for_corrupt')
       ElMessage.error({
-        message: `核心组件损坏，正在尝试修复`
+        message: `运行环境需要重新初始化，正在返回检查页面…`
       })
       router.replace('/')
     }

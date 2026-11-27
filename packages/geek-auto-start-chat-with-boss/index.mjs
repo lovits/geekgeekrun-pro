@@ -1,3 +1,5 @@
+import { checkAutoChatTime, autoChatAllowedNow } from '@geekgeekrun/utils/auto-chat-schedule-store.mjs'
+import { waitAndCheckAutoChatTime } from '@geekgeekrun/utils/auto-chat-schedule.mjs'
 import { internshipIssue, bossActivityIssue } from '@geekgeekrun/utils/job-screening.mjs'
 import { hasConfiguredLlm } from '@geekgeekrun/utils/job-feedback-learning.mjs'
 import { matchInputSources } from '@geekgeekrun/utils/job-filter-options.mjs'
@@ -5,6 +7,7 @@ import { readJobFeedback } from '@geekgeekrun/utils/job-feedback.mjs'
 import { buildJobMatchContext } from '@geekgeekrun/utils/job-match-context.mjs'
 import { jobFilterOptions, jobRegexPatterns, hasRequiredMatchInputs, testJobRegex, jobRegexFailures } from '@geekgeekrun/utils/job-filter-options.mjs'
 import { matchJobWithResume } from '@geekgeekrun/utils/ai-job-match.mjs'
+import { saveHrScreeningSnapshot, saveHrJobSnapshot } from '@geekgeekrun/utils/hr-context-store.mjs'
 import {
   sleep,
   sleepWithRandomDelay
@@ -43,6 +46,7 @@ import {
 } from './constant.mjs'
 import { parseSalary } from "@geekgeekrun/sqlite-plugin/dist/utils/parser"
 import { waitForSageTimeOrJustContinue } from './sage-time.mjs'
+import { createSuccessfulChatRest } from '@geekgeekrun/utils/successful-chat-rest.mjs'
 import cityGroupData from './cityGroup.mjs'
 import { clickFilterOption, setEmploymentTypeFilter, setNationwideCity } from './page-filters.mjs'
 import { canStartChat, installChatRequestGuard } from './chat-eligibility.mjs'
@@ -688,6 +692,8 @@ async function setFilterCondition (selectedFilters) {
 }
 
 async function toRecommendPage (hooks, { filterCheckOnly = false, simulation = null } = {}) {
+  if (!simulation && !filterCheckOnly) checkAutoChatTime()
+  const afterSuccessfulChat = createSuccessfulChatRest(ms => waitAndCheckAutoChatTime(ms, sleep, checkAutoChatTime))
   const filterCheckResults = []
   let userInfoPromise = page.waitForResponse((response) => {
       if (response.url().startsWith('https://www.zhipin.com/wapi/zpuser/wap/getUserInfo.json')) {
@@ -1577,12 +1583,13 @@ async function toRecommendPage (hooks, { filterCheckOnly = false, simulation = n
             blockJobNotSuit.add(targetJobData.jobInfo.encryptId)
             continue findInCurrentFilterCondition
           }
+          await saveHrJobSnapshot(storageFilePath, liveCandidate.jobInfo?.encryptId, liveCandidate.jobInfo, liveCandidate.selectedJob).catch(error => console.error('保存HR沟通岗位资料失败', error.message))
           const aiReviewSnapshot = JSON.stringify(liveCandidate)
           if (filterOptions.enabled) {
             const models = readConfigFile('llm.json')
             const model = models?.find(it => it.enabled)
             const snapshot = JSON.stringify(liveCandidate)
-            const decision = await matchJobWithResume({ ...readConfigFile('job-ai-match.json'), filterContext: buildJobMatchContext(readConfigFile('boss.json'), commonJobConditionConfig, readConfigFile('target-company-list.json'), jobFilterConditions) }, liveCandidate, model)
+            const decision = await matchJobWithResume({ ...readConfigFile('job-ai-match.json'), filterContext: buildJobMatchContext(readConfigFile('boss.json'), commonJobConditionConfig, readConfigFile('target-company-list.json'), jobFilterConditions) }, liveCandidate, model, undefined, (input, result) => saveHrScreeningSnapshot(storageFilePath, liveCandidate.jobInfo?.encryptId, input, result).catch(error => console.error('保存首次匹配资料失败', error.message)))
             console.log('AI_JOB_MATCH', JSON.stringify({ jobId: liveCandidate.jobInfo?.encryptId, company: liveCandidate.selectedJob?.brandName, ...decision }))
             fs.appendFileSync(path.join(storageFilePath, 'job-ai-match-audit.jsonl'), JSON.stringify({ at: new Date().toISOString(), jobId: liveCandidate.jobInfo?.encryptId, jobName: liveCandidate.jobInfo?.jobName, ...decision }) + '\n', { mode: 0o600 })
             if (targetJobData.jobInfo.encryptId === liveCandidate.jobInfo?.encryptId) await hooks.jobMatchEvaluated?.promise(targetJobData, decision)
@@ -1646,6 +1653,7 @@ async function toRecommendPage (hooks, { filterCheckOnly = false, simulation = n
           await hooks.newChatWillStartup?.promise(targetJobData)
           const startChatButtonProxy = await page.$('.job-detail-box .op-btn.op-btn-chat')
           //#region click the chat button
+          checkAutoChatTime()
           await startChatButtonProxy.click()
 
           const waitAddFriendResponse = async () => {
@@ -1700,6 +1708,7 @@ async function toRecommendPage (hooks, { filterCheckOnly = false, simulation = n
               await closeDialogButtonProxy.click()
               await sleepWithRandomDelay(2000)
             }
+            await afterSuccessfulChat(targetJobData.jobInfo.encryptId, readConfigFile('boss.json'), hooks)
           }
           const handleAddFriendResponse = async (res, { hasGoToChatPage = false } = {}) => {
             if (res.code === 0) {
@@ -1715,6 +1724,7 @@ async function toRecommendPage (hooks, { filterCheckOnly = false, simulation = n
                 hooks
               })
               const confirmButton = await page.waitForSelector('.chat-block-dialog .chat-block-footer .sure-btn')
+              checkAutoChatTime()
               await confirmButton.click()
               const nextRes = await waitAddFriendResponse()
               await handleAddFriendResponse(nextRes)
@@ -1728,6 +1738,7 @@ async function toRecommendPage (hooks, { filterCheckOnly = false, simulation = n
                 hooks
               })
               const confirmButton = await page.waitForSelector(`xpath///*[contains(@class, "chat-block-dialog")]//*[contains(@class, "chat-block-footer")]//*[contains(text(), "继续")]`)
+              checkAutoChatTime()
               await confirmButton.click()
               const nextRes = await waitAddFriendResponse()
               await handleAddFriendResponse(nextRes)
@@ -1822,6 +1833,7 @@ async function toRecommendPage (hooks, { filterCheckOnly = false, simulation = n
 
 export async function mainLoop (hooks, { filterCheckOnly = false, simulationLimit = null } = {}) {
   const simulation = simulationLimit == null ? null : createOnlineSimulation(simulationLimit, progress => hooks.simulationProgress?.promise(progress))
+  if (!simulation && !filterCheckOnly) checkAutoChatTime()
   if (!puppeteer) {
     await initPuppeteer()
   }
@@ -1836,7 +1848,7 @@ export async function mainLoop (hooks, { filterCheckOnly = false, simulationLimi
     })
     hooks.puppeteerLaunched?.call(browser)
     page = (await browser.pages())[0]
-    chatRequestGuard = await installChatRequestGuard(page, { simulation: Boolean(simulation) })
+    chatRequestGuard = await installChatRequestGuard(page, { simulation: Boolean(simulation), canSendNow: autoChatAllowedNow })
     hooks.pageGotten?.call(page)
     //set cookies
     const bossCookies = readStorageFile('boss-cookies.json')
@@ -1859,6 +1871,7 @@ export async function mainLoop (hooks, { filterCheckOnly = false, simulationLimi
       blockBossNotActive,
       blockBossNotNewChat
     })
+    if (!simulation && !filterCheckOnly) checkAutoChatTime()
     return await toRecommendPage(hooks, { filterCheckOnly, simulation })
     // goto search
 

@@ -1,7 +1,7 @@
 {
   "name": "geekgeekrun-ui",
-  "version": "0.20.3",
-  "description": "支持正则筛选、AI 匹配、反馈学习和模拟开聊的求职辅助工具",
+  "version": "0.20.4",
+  "description": "BOSS 求职辅助：岗位筛选、模拟开聊与自动回复",
   "main": "./out/main/index.js",
   "author": "geekgeekrun",
   "productName": "Geek Geek Run-Pro",

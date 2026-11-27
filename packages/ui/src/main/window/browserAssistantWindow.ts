@@ -6,6 +6,7 @@ import {
   saveLastUsedAndAvailableBrowserInfo
 } from '../flow/DOWNLOAD_DEPENDENCIES/utils/browser-history'
 import { openBrowserDownloadWindow } from '../features/open-browser-download-window'
+import { windowBackgroundColor } from '../utils/theme'
 
 export let browserAssistantWindow: BrowserWindow | null = null
 
@@ -14,16 +15,17 @@ export function createBrowserAssistantWindow(
   { autoFind }: { autoFind?: boolean } = {}
 ): BrowserWindow {
   // Create the browser window.
-  if (browserAssistantWindow) {
-    browserAssistantWindow!.close()
+  if (browserAssistantWindow && !browserAssistantWindow.isDestroyed()) {
+    browserAssistantWindow.close()
   }
   browserAssistantWindow = new BrowserWindow({
     width: 800,
     minWidth: 800,
-    height: 400,
+    height: 460,
     resizable: true,
     frame: true,
     show: false,
+    backgroundColor: windowBackgroundColor(),
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),

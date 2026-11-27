@@ -1,6 +1,27 @@
 <template>
-  <div class="page-wrap runtime-record-page flex flex-col of-hidden">
-    <div v-loading="isTableLoading" class="flex-1 of-hidden">
+  <div class="ggr-table-page runtime-record-page">
+    <header class="ggr-page-header">
+      <div>
+        <h2 class="ggr-page-title">职位库</h2>
+        <p class="ggr-page-desc">已采集岗位的快照存档、排序查看与历史变更对比</p>
+      </div>
+      <div class="ggr-header-actions">
+        <el-button
+          :loading="isTableLoading"
+          size="small"
+          @click="
+            () => {
+              gtagRenderer('job_library_refresh_clicked')
+              getJobLibrary()
+            }
+          "
+          >刷新</el-button
+        >
+        <RecordExport scope="jobs" />
+      </div>
+    </header>
+
+    <div v-loading="isTableLoading" class="table-card">
       <div ref="tableContainerEl" class="h-100% of-hidden">
         <ElTable
           ref="tableRef"
@@ -10,19 +31,22 @@
           size="small"
           table-layout="fixed"
           highlight-current-row
+          empty-text="暂无职位记录"
           @sort-change="handleCompanySort"
         >
-          <ElTableColumn prop="companyName" label="公司" sortable="custom"  min-width="100" show-overflow-tooltip />
-          <ElTableColumn prop="jobName" label="职位名称"  min-width="170" show-overflow-tooltip />
-          <ElTableColumn prop="positionName" label="职位分类"  min-width="85" show-overflow-tooltip />
-          <ElTableColumn prop="experienceName" label="工作经验"  min-width="95" show-overflow-tooltip />
+          <ElTableColumn prop="companyName" label="公司" sortable="custom" min-width="110" show-overflow-tooltip />
+          <ElTableColumn prop="jobName" label="职位名称" min-width="170" show-overflow-tooltip />
+          <ElTableColumn prop="positionName" label="职位分类" min-width="95" show-overflow-tooltip />
+          <ElTableColumn prop="experienceName" label="工作经验" min-width="95" show-overflow-tooltip />
           <ElTableColumn
             label="薪资"
             :formatter="(row) => formatJobSalary(row)"
-           min-width="100" show-overflow-tooltip />
-          <ElTableColumn prop="bossName" label="BOSS"  min-width="100" show-overflow-tooltip />
-          <ElTableColumn prop="bossTitle" label="BOSS身份"  min-width="140" show-overflow-tooltip />
-          <ElTableColumn label="职位信息" fixed="right" :width="200">
+            min-width="105"
+            show-overflow-tooltip
+          />
+          <ElTableColumn prop="bossName" label="BOSS" min-width="95" show-overflow-tooltip />
+          <ElTableColumn prop="bossTitle" label="BOSS 职务" min-width="135" show-overflow-tooltip />
+          <ElTableColumn label="操作" fixed="right" :width="190">
             <template #default="{ row }">
               <ElButton
                 link
@@ -50,20 +74,8 @@
         </ElTable>
       </div>
     </div>
-    <div class="flex flex-0 flex-justify-between pt10px pb10px">
-      <div class="w100px">
-        <el-button
-          :loading="isTableLoading"
-          size="small"
-          @click="
-            () => {
-              gtagRenderer('job_library_refresh_clicked')
-              getJobLibrary()
-            }
-          "
-          >刷新</el-button
-        >
-      </div>
+
+    <div class="pager-bar">
       <ElPagination
         v-model:current-page="pagination.pageNo"
         v-model:page-size="pagination.pageSize"
@@ -75,9 +87,9 @@
         @size-change="getJobLibrary"
         @current-change="getJobLibrary"
       />
-      <div class="w100px"><RecordExport scope="jobs" /></div>
     </div>
-    <ElDrawer v-model="drawVisibleModelValue" size="400px">
+
+    <ElDrawer v-model="drawVisibleModelValue" title="职位详情快照" size="min(520px, 90vw)">
       <JobInfoSnapshot
         v-if="selectedJobInfoForViewSnapshot"
         :job-info="selectedJobInfoForViewSnapshot"
@@ -92,12 +104,9 @@
     </ElDrawer>
     <ElDialog
       v-model="historyDialogVisibleModelValue"
-      width="100%"
-      :style="{
-        margin: 0,
-        height: 'fit-content',
-        minHeight: '100%'
-      }"
+      title="职位历史变更对比"
+      width="min(960px, 94vw)"
+      append-to-body
     >
       <JobInfoHistoryList
         v-if="selectedJobInfoForViewHistory"
@@ -120,7 +129,7 @@ import { useRecordAutoRefresh } from '@renderer/hooks/useRecordAutoRefresh'
 import { formatJobSalary } from '@geekgeekrun/utils/job-salary.mjs'
 import RecordExport from '@renderer/features/RecordExport/index.vue'
 import { ref, onMounted, onBeforeUnmount } from 'vue'
-import { ElTable, ElTableColumn, ElButton, ElPagination, ElDrawer, ElMessage } from 'element-plus'
+import { ElTable, ElTableColumn, ElButton, ElPagination, ElDrawer, ElDialog, ElMessage } from 'element-plus'
 import { type VChatStartupLog } from '@geekgeekrun/sqlite-plugin/src/entity/VChatStartupLog'
 import { type JobInfoChangeLog } from '@geekgeekrun/sqlite-plugin/src/entity/JobInfoChangeLog'
 import { PageReq, PagedRes } from '../../../../common/types/pagination'
@@ -276,7 +285,7 @@ async function handleViewJobHistoryButtonClick(record: VChatStartupLog) {
   if (!historyList.length) {
     gtagRenderer('job_history_is_not_found')
     ElMessage.warning({
-      message: '未找到与此条目相关的历史变更记录，再多投一投吧'
+      message: '该职位暂无历史变更记录'
     })
     return
   }
@@ -288,24 +297,17 @@ async function handleViewJobHistoryButtonClick(record: VChatStartupLog) {
 </script>
 
 <style scoped lang="scss">
-
-.page-wrap {
-  margin: 0 auto;
-  max-width: 1000px;
-  max-height: 100vh;
+.table-card {
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
-  padding-left: 20px;
-  padding-top: 20px;
-  :deep(.el-drawer) {
-    .el-drawer__header {
-      padding: 16px 20px;
-      margin-bottom: 0;
-    }
-    .el-drawer__body {
-      padding: 0;
-      margin: 0 0 20px 20px;
-      padding-right: 20px;
-    }
-  }
+  border-radius: 10px;
+  border: 1px solid var(--el-border-color-light);
+  background-color: var(--el-bg-color);
+}
+.pager-bar {
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
 }
 </style>

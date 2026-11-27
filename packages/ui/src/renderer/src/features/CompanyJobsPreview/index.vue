@@ -14,7 +14,7 @@
       <el-button v-if="error" size="small" @click="loadJobs">重试</el-button>
       <el-pagination v-model:current-page="pageNo" small layout="total, prev, pager, next" :page-size="20" :total="total" :disabled="loading" @current-change="loadJobs" />
     </div>
-    <el-drawer v-model="snapshotVisible" title="职位快照" size="400px" append-to-body><JobInfoSnapshot v-if="selectedJob" :job-info="selectedJob" scene="jobLibrary" /></el-drawer>
+    <el-drawer v-model="snapshotVisible" title="职位详情快照" size="min(520px, 90vw)" append-to-body><JobInfoSnapshot v-if="selectedJob" :job-info="selectedJob" scene="jobLibrary" /></el-drawer>
   </div>
 </template>
 <script setup lang="ts">

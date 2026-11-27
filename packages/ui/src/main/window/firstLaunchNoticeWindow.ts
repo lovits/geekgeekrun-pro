@@ -1,5 +1,6 @@
 import { BrowserWindow } from 'electron'
 import path from 'path'
+import { windowBackgroundColor } from '../utils/theme'
 
 export let firstLaunchNoticeWindow: BrowserWindow | null = null
 export function createFirstLaunchNoticeWindow(
@@ -12,6 +13,7 @@ export function createFirstLaunchNoticeWindow(
     minHeight: 320,
     resizable: true,
     show: false,
+    backgroundColor: windowBackgroundColor(),
     autoHideMenuBar: true,
     frame: true,
     webPreferences: {

@@ -8,6 +8,13 @@ const rows = [
 ]
 const database = { v_chat_startup_log: rows, v_mark_as_not_suit_log: rows, v_job_library: rows, v_company_library: [{ name: '甲科技', brandName: '甲', industryName: '互联网' }, { name: '乙制造', industryName: '制造业' }] }
 const feedback = [{ jobId: 'one', value: 'like' }, { jobId: 'two', value: 'dislike' }]
+test('reply export filters company, job and Beijing date and keeps original fields', () => {
+  const replies = [{ company: '甲公司', job: 'Agent实习', boss: '李', message: '你好', reply: '您好', status: 'replied', at: '2026-11-17T16:00:00Z' }, { company: '乙公司', job: 'Java', at: '2026-11-18T16:00:00Z' }]
+  const selected = selectExportRecords({ replies }, { scope: 'replies', filters: { company: '甲', job: 'agent', startDate: '2026-11-18', endDate: '2026-11-18' } })
+  assert.deepEqual(selected, [replies[0]])
+  const csv = recordsToCsv(selected, 'replies')
+  assert.match(csv, /收到的消息/); assert.match(csv, /回复内容/); assert.match(csv, /已回复/); assert.match(csv, /2026-11-18 00:00:00/)
+})
 test('export filters combine company, role, city and explicit preference without changing source rows', () => {
   const result = selectExportRecords(database, { scope: 'chats', filters: { company: '甲', job: 'python', city: '北京', feedback: 'like' } }, feedback)
   assert.equal(result.length, 1); assert.equal(result[0].encryptJobId, 'one'); assert.equal(result[0].preferenceFeedback, 'like')

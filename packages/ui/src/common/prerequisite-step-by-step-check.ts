@@ -1,18 +1,18 @@
 export const getAutoStartChatSteps = () => [
   {
     id: 'worker-launch',
-    describe: '启动子进程'
+    describe: '启动后台任务'
   },
   {
     id: 'puppeteer-executable-check',
-    describe: 'Puppeteer 可执行程序检查'
+    describe: '检查浏览器环境'
   },
   {
     id: 'basic-cookie-check',
-    describe: 'Cookie 格式检查'
+    describe: '检查登录凭证'
   },
   {
     id: 'login-status-check',
-    describe: '登录状态检查'
+    describe: '验证 BOSS 登录状态'
   }
 ]

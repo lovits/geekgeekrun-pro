@@ -61,7 +61,7 @@
                   whiteSpace: 'nowrap',
                   textOverflow: 'ellipsis',
                   alignSelf: 'flex-end',
-                  color: '#bbb'
+                  color: 'var(--el-text-color-secondary)'
                 }"
                 font-size-10px
                 w-fit-content
@@ -74,7 +74,8 @@
               <div
                 :style="{
                   width: 'fit-content',
-                  alignSelf: 'flex-end'
+                  alignSelf: 'flex-end',
+                  color: 'var(--el-text-color-secondary)'
                 }"
                 font-size-10px
               >
@@ -89,17 +90,18 @@
         <el-empty>
           <template #description>
             <template v-if="!isLoading">
-              点击下方 “<el-button
-                font-size-16px
+              点击下方“<el-button
+                font-size-15px
                 h-fit-content
                 align-baseline
                 p0
-                type="text"
+                link
+                type="primary"
                 @click.prevent="sendLlmGeneratedContent"
-                >发送开场白</el-button
-              >” 以开始模拟聊天
+                >生成开场白</el-button
+              >”预览已读不回跟进效果
             </template>
-            <template v-else>请稍候，第一条消息正在回复的路上~</template>
+            <template v-else>正在生成开场消息，请稍候…</template>
           </template>
         </el-empty>
       </div>
@@ -108,13 +110,15 @@
       :style="{
         display: 'grid',
         gridTemplateColumns: 'min-content 1fr min-content',
-        height: `fit-content`,
-        paddingTop: `10px`,
-        paddingBottom: `10px`,
-        backgroundColor: `#f0f0f0`
+        gap: '10px',
+        alignItems: 'center',
+        height: 'fit-content',
+        padding: '10px 14px',
+        backgroundColor: 'var(--el-bg-color)',
+        borderTop: '1px solid var(--el-border-color-light)'
       }"
     >
-      <el-select v-model="selectedLlmConfig" ml10px w160px placeholder="随机使用一个模型">
+      <el-select v-model="selectedLlmConfig" w180px placeholder="随机选用已启用模型">
         <el-option
           v-for="(it, index) in llmConfigListForRender"
           :key="index"
@@ -122,28 +126,29 @@
           :label="it.model"
           :disabled="!it.enabled"
           :style="{
-            paddingTop: '10px',
-            paddingBottom: '10px',
+            paddingTop: '8px',
+            paddingBottom: '8px',
             height: 'auto',
-            lineHeight: '1.25em'
+            lineHeight: '1.35'
           }"
         >
           <div
             :style="{
               display: 'flex',
-              justifyContent: 'space-between'
+              justifyContent: 'space-between',
+              gap: '12px'
             }"
           >
             <div>{{ it.model }}</div>
-            <div class="font-size-12px color-#bbb">
+            <div style="font-size: 12px; color: var(--el-text-color-secondary)">
               {{ formatApiSecret(it.providerApiSecret) || '' }}
             </div>
           </div>
           <div
             v-if="it?.providerCompleteApiUrl?.trim?.()"
             :style="{
-              color: '#bbb',
-              width: '35em',
+              color: 'var(--el-text-color-secondary)',
+              maxWidth: '32em',
               fontSize: '12px',
               overflow: 'hidden',
               textOverflow: 'ellipsis'
@@ -159,11 +164,11 @@
         type="primary"
         @click="sendLlmGeneratedContent"
       >
-        <template v-if="isLoading">正在生成消息，请稍候...</template>
-        <template v-else-if="!messageList.length">发送开场白</template>
-        <template v-else>发送下一句提醒内容</template>
+        <template v-if="isLoading">正在生成消息，请稍候…</template>
+        <template v-else-if="!messageList.length">生成开场白</template>
+        <template v-else>生成下一条跟进消息</template>
       </el-button>
-      <el-button mr10px type="text" @click="closeWindow">关闭对话框</el-button>
+      <el-button @click="closeWindow">关闭窗口</el-button>
     </div>
   </div>
 </template>
@@ -342,25 +347,26 @@ gtagRenderer('enter_mock_chat_page')
   max-width: 420px;
   margin-top: 20px;
   .message-item {
-    line-height: 1.25em;
-    font-size: 14px;
-    background-color: #d1f0ef;
-    color: #333;
-    padding: 10px;
-    border-radius: 8px 8px 0 0;
+    line-height: 1.5;
+    font-size: 13.5px;
+    background-color: var(--ggr-chat-bubble-bg);
+    color: var(--ggr-chat-bubble-fg);
+    padding: 10px 12px;
+    border-radius: 10px 10px 2px 10px;
     &.will-enter-context {
       position: relative;
       &::before {
-        content: '聊天上下文';
+        content: '上下文范围内';
         display: flex;
         font-size: 10px;
         position: absolute;
         top: 100%;
         left: 0;
-        background-color: #10c7c3;
-        color: #fff;
+        background-color: var(--ggr-chat-badge-bg);
+        color: var(--ggr-chat-badge-fg);
         line-height: 1;
-        padding: 2px 4px;
+        padding: 2px 5px;
+        border-radius: 0 0 4px 4px;
       }
     }
   }

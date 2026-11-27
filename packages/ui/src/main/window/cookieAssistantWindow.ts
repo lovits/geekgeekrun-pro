@@ -5,20 +5,24 @@ import * as childProcess from 'node:child_process'
 import * as JSONStream from 'JSONStream'
 import { getLastUsedAndAvailableBrowser } from '../flow/DOWNLOAD_DEPENDENCIES/utils/browser-history'
 import { configWithBrowserAssistant } from '../features/config-with-browser-assistant'
+import { windowBackgroundColor } from '../utils/theme'
 
 export let cookieAssistantWindow: BrowserWindow | null = null
 export function createCookieAssistantWindow(
   opt?: Electron.BrowserWindowConstructorOptions
 ): BrowserWindow {
   // Create the browser window.
-  if (cookieAssistantWindow) {
-    cookieAssistantWindow!.show()
+  if (cookieAssistantWindow && !cookieAssistantWindow.isDestroyed()) {
+    cookieAssistantWindow.show()
+    cookieAssistantWindow.focus()
+    return cookieAssistantWindow
   }
   cookieAssistantWindow = new BrowserWindow({
     width: 960,
     height: 720,
     resizable: true,
     show: false,
+    backgroundColor: windowBackgroundColor(),
     autoHideMenuBar: true,
     frame: true,
     webPreferences: {
@@ -76,7 +80,7 @@ export function createCookieAssistantWindow(
       await dialog.showMessageBox({
         type: `error`,
         message: `未找到可用的浏览器`,
-        detail: `请重新运行本程序，按照提示安装、配置浏览器`
+        detail: `请前往「浏览器设置」自动检测、下载或手动选择 Chrome / Edge 浏览器`
       })
       return
     }

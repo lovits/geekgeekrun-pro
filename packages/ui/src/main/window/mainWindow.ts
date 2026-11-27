@@ -2,15 +2,19 @@ import { BrowserWindow, shell } from 'electron'
 import path from 'path'
 import { openDevTools } from '../commands'
 import { daemonEE } from '../flow/OPEN_SETTING_WINDOW/connect-to-daemon'
+import { applyNativeTheme, windowBackgroundColor } from '../utils/theme'
 export let mainWindow: BrowserWindow | null = null
 
 export function createMainWindow(): BrowserWindow {
+  applyNativeTheme()
   // Create the browser window.
   mainWindow = new BrowserWindow({
     width: 1280,
-    height: 720,
-    minWidth: 1280,
+    height: 780,
+    minWidth: 1120,
+    minHeight: 660,
     show: false,
+    backgroundColor: windowBackgroundColor(),
     autoHideMenuBar: true,
     frame: true,
     ...(process.platform === 'linux'
@@ -47,16 +51,22 @@ export function createMainWindow(): BrowserWindow {
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
   }
 
-  mainWindow!.once('closed', () => {
-    mainWindow = null
-  })
-  daemonEE.on('message', (message) => {
+  const forwardDaemonMessage = (message: any) => {
     if (message.type === 'worker-to-gui-message') {
       mainWindow?.webContents?.send('worker-to-gui-message', message)
+    } else if (message.type === 'worker-exited') {
+      mainWindow?.webContents?.send('worker-exited', message)
     }
-  })
-  daemonEE.on('error', (err) => {
+  }
+  const handleDaemonError = (err: unknown) => {
     console.log(err)
+  }
+  daemonEE.on('message', forwardDaemonMessage)
+  daemonEE.on('error', handleDaemonError)
+  mainWindow!.once('closed', () => {
+    daemonEE.off('message', forwardDaemonMessage)
+    daemonEE.off('error', handleDaemonError)
+    mainWindow = null
   })
   return mainWindow!
 }

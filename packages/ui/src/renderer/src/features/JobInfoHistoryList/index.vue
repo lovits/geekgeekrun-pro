@@ -1,11 +1,11 @@
 <template>
   <div>
-    <el-form>
-      <el-row>
+    <el-form class="form">
+      <el-row :gutter="12">
         <el-col :span="6"><el-form-item label="公司">{{ jobInfo.companyName }}</el-form-item></el-col>
         <el-col :span="6"><el-form-item label="职位名称">{{ jobInfo.jobName }}</el-form-item></el-col>
         <el-col :span="6"><el-form-item label="职位分类">{{ jobInfo.positionName }}</el-form-item></el-col>
-        <el-col :span="6"><el-form-item label="BOSS及其身份">{{ jobInfo.bossName }} {{ jobInfo.bossTitle }}</el-form-item></el-col>
+        <el-col :span="6"><el-form-item label="BOSS 与职务">{{ jobInfo.bossName }} {{ jobInfo.bossTitle }}</el-form-item></el-col>
       </el-row>
     </el-form>
     <el-divider content-position="left">变更记录</el-divider>
@@ -14,22 +14,23 @@
       :data="dataForRender"
       :row-style="getRowStyle"
     >
-      <el-table-column prop="title" label="" width="150px" fixed />
+      <el-table-column prop="title" label="字段" width="120px" fixed />
       <el-table-column
         v-for="(item, index) in tableProps"
         :key="index"
         :prop="item.value"
         :label="item.label"
+        min-width="240"
       >
         <template #header>
           <div class="diff-table-header">
-            {{ transformUtcDateToLocalDate(item.value).format('YYYY-MM-DD HH:mm:ss') }}
+            <span>{{ transformUtcDateToLocalDate(item.value).format('YYYY-MM-DD HH:mm:ss') }}</span>
             <el-tooltip
-              content="待对比条目少于2个"
+              content="至少需要 2 条记录才能对比"
               :disabled="tableProps.length > 1"
               @show="gtagRenderer('tooltip_show_about_lake_of_compare_item')"
             >
-              <el-radio v-model="diffPivot" :label="item.value" :disabled="tableProps.length <= 1">作为diff基准</el-radio>
+              <el-radio v-model="diffPivot" :value="item.value" :disabled="tableProps.length <= 1">设为对比基准</el-radio>
             </el-tooltip>
           </div>
         </template>
@@ -121,7 +122,7 @@ function getRowStyle ({ row }) {
       row[propsToCompare[i + 1]]?.trim()
     ) {
       return {
-        backgroundColor: '#fffeef'
+        backgroundColor: 'var(--el-color-warning-light-9)'
       }
     }
   }
@@ -131,8 +132,11 @@ function getRowStyle ({ row }) {
 
 <style lang="scss" scoped>
 .form {
+  :deep(.el-form-item) {
+    margin-bottom: 6px;
+  }
   :deep(.el-form-item__label) {
-    color: #999;
+    color: var(--el-text-color-secondary);
   }
 }
 .diff-table {
@@ -141,7 +145,7 @@ function getRowStyle ({ row }) {
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 4px;
   }
 }
 </style>
-<style lang="scss"></style>

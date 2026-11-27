@@ -20,11 +20,11 @@
     <el-form-item label="工作经验">{{ jobInfo.experienceName }}</el-form-item>
     <el-form-item label="薪资">{{ formatJobSalary(jobInfo) }}</el-form-item>
     <el-form-item label="职位描述">
-      <pre class="of-auto">{{ jobInfo.description }}</pre>
+      <pre class="snapshot-desc">{{ jobInfo.description }}</pre>
     </el-form-item>
     <el-form-item label="BOSS"
       >{{ jobInfo.bossName
-      }}<template v-if="jobInfo.bossTitle"> - {{ jobInfo.bossTitle }}</template></el-form-item
+      }}<template v-if="jobInfo.bossTitle"> · {{ jobInfo.bossTitle }}</template></el-form-item
     >
   </el-form>
 </template>
@@ -50,8 +50,23 @@ defineProps({
 <style lang="scss" scoped>
 .form {
   :deep(.el-form-item__label) {
-    color: #999;
+    color: var(--el-text-color-secondary);
+    font-weight: 500;
   }
 }
+.snapshot-desc {
+  margin: 0;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background-color: var(--el-fill-color-lighter);
+  border: 1px solid var(--el-border-color-lighter);
+  color: var(--el-text-color-regular);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 </style>
-<style lang="scss"></style>

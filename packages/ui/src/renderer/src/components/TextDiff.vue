@@ -34,22 +34,30 @@ const diffResultList = computed(() => {
 
 <style lang="scss" scoped>
 pre {
-  overflow: auto;
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: inherit;
+  line-height: 1.6;
 }
 del {
   text-decoration: line-through;
-  color: #b30000;
-  background: #fadad7;
+  color: var(--ggr-diff-del-fg);
+  background: var(--ggr-diff-del-bg);
+  border-radius: 3px;
+  padding: 0 2px;
 }
 
 ins {
-  background: #eaf2c2;
-  color: #406619;
+  background: var(--ggr-diff-ins-bg);
+  color: var(--ggr-diff-ins-fg);
+  border-radius: 3px;
+  padding: 0 2px;
   text-decoration: none;
 }
 
 .chunk-header {
-  color: #8a008b;
+  color: var(--ggr-diff-chunk-fg);
   text-decoration: none;
 }
 </style>

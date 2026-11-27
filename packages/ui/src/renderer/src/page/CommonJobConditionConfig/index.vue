@@ -1,7 +1,14 @@
 <template>
   <div class="common-job-condition-config" :class="{ embedded }">
-    <header class="window-heading"><h2>公共职位正则筛选</h2></header>
-    <div class="main-wrapper">
+    <div class="ggr-page">
+      <header class="ggr-page-header">
+        <div>
+          <h2 class="ggr-page-title">公共筛选规则</h2>
+          <p class="ggr-page-desc">统一维护公司白名单、屏蔽名单与职位关键词正则，可在自动开聊和跟进任务中直接复用</p>
+        </div>
+        <span class="ggr-status-text" role="status">{{ autosave.status.value }}</span>
+      </header>
+
       <el-form
         ref="formRef"
         :model="formContent"
@@ -10,268 +17,206 @@
         label-position="top"
         class="common-config-form"
       >
-        <section class="settings-card"><h3>筛选范围</h3><JobFilterMode scope="regex" compact /></section>
-        <section class="settings-card">
-        <el-form-item data-setting="companies" tabindex="-1" prop="expectCompanies" mb0>
-          <div
-            font-size-14px
-            flex
-            mb6px
-            :style="{
-              justifyContent: 'space-between',
-              alignItems: 'baseline',
-              width: '100%',
-              lineHeight: '1.25em'
-            }"
-          >
-            <div>
-              期望投递公司 <JobFilterHelp kind="expected" />
-            </div>
-            <el-dropdown @command="handleExpectCompanyTemplateClicked">
-              <el-button size="small"
-                >公司列表模板 <el-icon class="el-icon--right"><arrow-down /></el-icon
-              ></el-button>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item
-                    v-for="item in expectCompanyTemplateList"
-                    :key="item.name"
-                    :command="item"
-                    >{{ item.name }}</el-dropdown-item
-                  >
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
+        <!-- Card 1: 启用开关 -->
+        <section class="ggr-card">
+          <div class="ggr-card-header">
+            <h3 class="ggr-card-title">生效规则开关</h3>
+            <span class="ggr-card-subtitle">勾选后将在职位过滤阶段自动执行对应规则</span>
           </div>
-          <CompanyTags v-model="formContent.expectCompanies" label="期望公司" />
-        </el-form-item>
+          <JobFilterMode scope="regex" compact />
         </section>
-        <section class="settings-card">
-        <div
-          ref="blockCompanyNameRegExpSectionEl"
-          font-size-14px
-          flex
-          :style="{
-            justifyContent: 'space-between',
-            alignItems: 'baseline',
-            width: '100%',
-            lineHeight: '1.25em'
-          }"
-        >
-          <div mb6px>
-            屏蔽公司 <JobFilterHelp kind="blocked" />
-          </div>
-          <el-dropdown @command="handleBlockCompanyNameRegExpTemplateClicked">
-            <el-button size="small"
-              >公司列表模板 <el-icon class="el-icon--right"><arrow-down /></el-icon
-            ></el-button>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item
-                  v-for="item in blockCompanyNameRegExpTemplateList"
-                  :key="item.name"
-                  :command="item"
-                  >{{ item.name }}</el-dropdown-item
-                >
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-        </div>
-        <div
-          class="block-company-filter-wrap"
-          :style="{
-            display: 'flex',
-            justifyContent: 'space-between',
-            gap: '10px'
-          }"
-        >
-          <el-form-item prop="blockCompanyNameRegExpStr" mb0 w-full>
-            <CompanyTags v-model="formContent.blockCompanyNameRegExpStr" label="屏蔽公司" regex />
-          </el-form-item>
-        </div>
-        </section>
-        <section data-setting="experienceName" tabindex="-1" class="settings-card">
-          <h3>工作经验 <el-tooltip content="工作经验原文必须匹配正则；本项独立于其他正则的且或关系。" placement="top"><span tabindex="0">ⓘ</span></el-tooltip></h3>
-          <el-form-item prop="expectWorkExpRegExpStr" label="工作经验正则（不区分大小写）">
-            <el-input v-model="formContent.expectWorkExpRegExpStr" type="textarea" :autosize="{ minRows: 2, maxRows: 4 }" />
-                  <div style="width: 100%; margin-top: 8px"><label>规则说明</label><el-input v-model="formContent.regexAnnotations.experienceName.note" type="textarea" :autosize="{ minRows: 2, maxRows: 5 }" /></div>
-          </el-form-item>
-        </section>
-        <section data-setting="regex" tabindex="-1" class="settings-card">
-        <div>
-          <div
-            flex
-            :style="{
-              alignItems: 'center',
-              justifyContent: 'space-between'
-            }"
-          >
-            <div font-size-14px>期望职位信息 <JobFilterHelp kind="jobs" /></div>
-            <div>
-              <el-dropdown ml20px @command="handleExpectJobFilterTemplateClicked">
-                <el-button size="small"
-                  >职位详情筛选模板（按职类区分）
-                  <el-icon class="el-icon--right"><arrow-down /></el-icon
-                ></el-button>
-                <template #dropdown>
-                  <el-dropdown-menu
-                    :style="{
-                      display: 'grid',
-                      gridTemplateColumns: '1fr 1fr 1fr'
-                    }"
-                  >
-                    <el-dropdown-item
-                      v-for="item in expectJobFilterTemplateList"
-                      :key="item.name"
-                      :command="item"
-                      >{{ item.name }}</el-dropdown-item
-                    >
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
-            </div>
-          </div>
-          <div
-            :style="{
-              width: '100%',
-              display: 'flex',
-              gap: '10px'
-            }"
-          >
-            <div flex-1>
-              <el-form-item mb0 prop="expectJobNameRegExpStr">
-                <div font-size-12px>职位名称/类型/描述 正则匹配筛选逻辑</div>
-                <el-select
-                  v-model="formContent.jobDetailRegExpMatchLogic"
-                  @change="(value) => gtagRenderer('job_detail_re_ml_change', { value })"
-                >
-                  <el-option
-                    v-for="op in jobDetailRegExpMatchLogicOptions"
-                    :key="op.value"
-                    :label="op.name"
-                    :value="op.value"
-                    >{{ op.name }}</el-option
-                  >
-                </el-select>
-              </el-form-item>
-              <div
-                :style="{
-                  width: '100%',
-                  height: '1px',
-                  backgroundColor: '#f0f0f0',
-                  marginTop: '0.5lh'
-                }"
-              />
-              <div
-                :style="{
-                  display: 'grid',
-                  gridTemplateColumns: '2em 1fr',
-                  gap: '5px',
-                  flex: 1,
-                  alignItems: 'end'
-                }"
-                class="job-detail-filter-wrap"
-              >
 
-                <div></div>
-                <el-form-item mb0 prop="expectJobNameRegExpStr">
-                  <div font-size-12px>职位名称正则（不区分大小写）</div>
+        <!-- Card 2: 公司名单与屏蔽规则 -->
+        <div class="two-col-cards">
+          <section class="ggr-card mb0">
+            <div class="ggr-card-header">
+              <h3 class="ggr-card-title">
+                期望投递公司 <JobFilterHelp kind="expected" />
+              </h3>
+              <TemplatePicker kind="expected-companies" :defaults="expectCompanyTemplateList.map(item => ({ name: item.name, data: item.value }))" :value="formContent.expectCompanies" @apply="value => formContent.expectCompanies = value" />
+
+            </div>
+            <el-form-item data-setting="companies" tabindex="-1" prop="expectCompanies" class="mb0">
+              <CompanyTags v-model="formContent.expectCompanies" label="期望公司" />
+            </el-form-item>
+          </section>
+
+          <section ref="blockCompanyNameRegExpSectionEl" class="ggr-card mb0">
+            <div class="ggr-card-header">
+              <h3 class="ggr-card-title">
+                屏蔽公司（支持正则） <JobFilterHelp kind="blocked" />
+              </h3>
+              <TemplatePicker kind="blocked-companies" :defaults="blockCompanyNameRegExpTemplateList.map(item => ({ name: item.name, data: item.value }))" :value="formContent.blockCompanyNameRegExpStr" @apply="value => formContent.blockCompanyNameRegExpStr = value" />
+
+            </div>
+            <el-form-item prop="blockCompanyNameRegExpStr" class="mb0">
+              <CompanyTags v-model="formContent.blockCompanyNameRegExpStr" label="屏蔽公司" regex />
+            </el-form-item>
+          </section>
+        </div>
+
+        <!-- Card 3: 工作经验独立正则 -->
+        <section data-setting="experienceName" tabindex="-1" class="ggr-card mt16">
+          <div class="ggr-card-header">
+            <h3 class="ggr-card-title">
+              工作经验要求正则
+              <el-tooltip content="岗位标注的经验要求需匹配此正则（独立生效，不受下方“且／或”组合逻辑影响）。" placement="top">
+                <button type="button" class="ggr-help-btn" aria-label="工作经验正则说明">
+                  <QuestionFilled />
+                </button>
+              </el-tooltip>
+            </h3>
+            <span class="ggr-card-subtitle">不区分大小写，留空表示不限</span>
+          </div>
+          <div class="rule-pair">
+            <el-form-item prop="expectWorkExpRegExpStr" label="正则表达式" class="mb0">
+              <el-input
+                v-model="formContent.expectWorkExpRegExpStr"
+                class="ggr-mono"
+                type="textarea"
+                placeholder="例如：在校|应届|经验不限|1-3年"
+                :autosize="{ minRows: 2, maxRows: 4 }"
+              />
+            </el-form-item>
+            <el-form-item label="规则备注（仅供自己查看）" class="mb0">
+              <el-input
+                v-model="formContent.regexAnnotations.experienceName.note"
+                type="textarea"
+                placeholder="记录这条规则的用途，方便日后维护"
+                :autosize="{ minRows: 2, maxRows: 4 }"
+              />
+            </el-form-item>
+          </div>
+        </section>
+
+        <!-- Card 4: 职位名称 / 类型 / 描述 正则组合 -->
+        <section data-setting="regex" tabindex="-1" class="ggr-card">
+          <div class="ggr-card-header">
+            <h3 class="ggr-card-title">
+              职位关键词正则匹配 <JobFilterHelp kind="jobs" />
+            </h3>
+            <TemplatePicker kind="job-regex" :defaults="expectJobFilterTemplateList.map(item => ({ name: item.name, data: item.config }))" :value="jobRegexTemplate" @apply="applyJobRegexTemplate" />
+
+          </div>
+
+          <div class="logic-bar">
+            <span class="logic-label">多条件匹配关系：</span>
+            <el-select
+              v-model="formContent.jobDetailRegExpMatchLogic"
+              style="width: 340px; max-width: 100%"
+              @change="(value) => gtagRenderer('job_detail_re_ml_change', { value })"
+            >
+              <el-option
+                v-for="op in jobDetailRegExpMatchLogicOptions"
+                :key="op.value"
+                :label="op.name"
+                :value="op.value"
+              />
+            </el-select>
+          </div>
+
+          <div class="regex-stack">
+            <!-- Rule 1: 职位名称 -->
+            <div class="regex-block">
+              <div class="regex-block-head">
+                <strong>1. 职位名称正则</strong>
+                <span class="muted-tag">不区分大小写</span>
+              </div>
+              <div class="rule-pair">
+                <el-form-item prop="expectJobNameRegExpStr" class="mb0">
                   <el-input
-                    data-setting="jobName" v-model="formContent.expectJobNameRegExpStr"
+                    data-setting="jobName"
+                    v-model="formContent.expectJobNameRegExpStr"
+                    class="ggr-mono"
                     type="textarea"
-                    :placeholder="
-                      getJobDetailRegExpMatchLogicConfig({ formContent }).inputPlaceholderText
-                    "
+                    :placeholder="getJobDetailRegExpMatchLogicConfig({ formContent }).inputPlaceholderText"
                     :autosize="{ minRows: 2, maxRows: 6 }"
-                    max-h-6lh
-                    @blur="
-                      formContent.expectJobNameRegExpStr =
-                        formContent.expectJobNameRegExpStr?.trim() ?? ''
-                    "
+                    @blur="formContent.expectJobNameRegExpStr = formContent.expectJobNameRegExpStr?.trim() ?? ''"
                   />
-                  <div style="width: 100%; margin-top: 8px"><label>规则说明</label><el-input v-model="formContent.regexAnnotations.jobName.note" type="textarea" :autosize="{ minRows: 2, maxRows: 5 }" /></div>
                 </el-form-item>
-                <div
-                  mb0px
-                  font-size-12px
-                  flex
-                  flex-justify-center
-                  fw-800
-                  flex-self-start
-                  position-relative
-                  style="top: 42px"
-                >
-                  {{ getJobDetailRegExpMatchLogicConfig({ formContent }).logicText }}
-                </div>
-                <el-form-item mb0 prop="expectJobTypeRegExpStr">
-                  <div ref="jobDetailRegExpSectionEl" font-size-12px>
-                    职位类型正则（推荐填写，不区分大小写）
-                  </div>
+                <el-form-item class="mb0">
                   <el-input
-                    data-setting="positionName" v-model="formContent.expectJobTypeRegExpStr"
+                    v-model="formContent.regexAnnotations.jobName.note"
                     type="textarea"
-                    :placeholder="
-                      getJobDetailRegExpMatchLogicConfig({ formContent }).inputPlaceholderText
-                    "
+                    placeholder="备注规则用途（选填）"
                     :autosize="{ minRows: 2, maxRows: 6 }"
-                    max-h-6lh
-                    @blur="
-                      formContent.expectJobTypeRegExpStr =
-                        formContent.expectJobTypeRegExpStr?.trim() ?? ''
-                    "
                   />
-                  <div style="width: 100%; margin-top: 8px"><label>规则说明</label><el-input v-model="formContent.regexAnnotations.positionName.note" type="textarea" :autosize="{ minRows: 2, maxRows: 5 }" /></div>
                 </el-form-item>
-                <div
-                  mb0px
-                  font-size-12px
-                  flex
-                  flex-justify-center
-                  fw-800
-                  flex-self-start
-                  position-relative
-                  style="top: 42px"
-                >
-                  {{ getJobDetailRegExpMatchLogicConfig({ formContent }).logicText }}
-                </div>
-                <el-form-item mb0 prop="expectJobDescRegExpStr">
-                  <div font-size-12px>职位描述正则（不区分大小写）</div>
+              </div>
+            </div>
+
+            <div class="logic-connector">
+              <el-tag size="small" type="primary" effect="light">
+                {{ getJobDetailRegExpMatchLogicConfig({ formContent }).logicText }}
+              </el-tag>
+            </div>
+
+            <!-- Rule 2: 职位类型 -->
+            <div ref="jobDetailRegExpSectionEl" class="regex-block">
+              <div class="regex-block-head">
+                <strong>2. 职位类型正则（推荐填写）</strong>
+                <span class="muted-tag">不区分大小写</span>
+              </div>
+              <div class="rule-pair">
+                <el-form-item prop="expectJobTypeRegExpStr" class="mb0">
                   <el-input
-                    data-setting="postDescription" v-model="formContent.expectJobDescRegExpStr"
+                    data-setting="positionName"
+                    v-model="formContent.expectJobTypeRegExpStr"
+                    class="ggr-mono"
                     type="textarea"
-                    :placeholder="
-                      getJobDetailRegExpMatchLogicConfig({ formContent }).inputPlaceholderText
-                    "
+                    :placeholder="getJobDetailRegExpMatchLogicConfig({ formContent }).inputPlaceholderText"
                     :autosize="{ minRows: 2, maxRows: 6 }"
-                    max-h-6lh
-                    @blur="
-                      formContent.expectJobDescRegExpStr =
-                        formContent.expectJobDescRegExpStr?.trim() ?? ''
-                    "
+                    @blur="formContent.expectJobTypeRegExpStr = formContent.expectJobTypeRegExpStr?.trim() ?? ''"
                   />
-                  <div style="width: 100%; margin-top: 8px"><label>规则说明</label><el-input v-model="formContent.regexAnnotations.postDescription.note" type="textarea" :autosize="{ minRows: 2, maxRows: 5 }" /></div>
+                </el-form-item>
+                <el-form-item class="mb0">
+                  <el-input
+                    v-model="formContent.regexAnnotations.positionName.note"
+                    type="textarea"
+                    placeholder="备注规则用途（选填）"
+                    :autosize="{ minRows: 2, maxRows: 6 }"
+                  />
+                </el-form-item>
+              </div>
+            </div>
+
+            <div class="logic-connector">
+              <el-tag size="small" type="primary" effect="light">
+                {{ getJobDetailRegExpMatchLogicConfig({ formContent }).logicText }}
+              </el-tag>
+            </div>
+
+            <!-- Rule 3: 职位描述 -->
+            <div class="regex-block">
+              <div class="regex-block-head">
+                <strong>3. 职位描述正则</strong>
+                <span class="muted-tag">不区分大小写</span>
+              </div>
+              <div class="rule-pair">
+                <el-form-item prop="expectJobDescRegExpStr" class="mb0">
+                  <el-input
+                    data-setting="postDescription"
+                    v-model="formContent.expectJobDescRegExpStr"
+                    class="ggr-mono"
+                    type="textarea"
+                    :placeholder="getJobDetailRegExpMatchLogicConfig({ formContent }).inputPlaceholderText"
+                    :autosize="{ minRows: 2, maxRows: 6 }"
+                    @blur="formContent.expectJobDescRegExpStr = formContent.expectJobDescRegExpStr?.trim() ?? ''"
+                  />
+                </el-form-item>
+                <el-form-item class="mb0">
+                  <el-input
+                    v-model="formContent.regexAnnotations.postDescription.note"
+                    type="textarea"
+                    placeholder="备注规则用途（选填）"
+                    :autosize="{ minRows: 2, maxRows: 6 }"
+                  />
                 </el-form-item>
               </div>
             </div>
           </div>
-        </div>
         </section>
       </el-form>
-    </div>
-    <div class="settings-footer">
-      <div
-        :style="{
-          display: 'flex',
-          justifyContent: 'end',
-          maxWidth: '1000px',
-          margin: '0 auto',
-          paddingLeft: '20px',
-          paddingRight: 'calc(20px + 16px)'
-        }"
-      >
-        <el-button @click="handleCancel">取消</el-button>
-        <el-button type="primary" @click="handleSave">保存</el-button>
-      </div>
     </div>
   </div>
 </template>
@@ -280,21 +225,17 @@
 import JobFilterHelp from '@renderer/features/JobFilterHelp/index.vue'
 import CompanyTags from '@renderer/features/CompanyTags/index.vue'
 import JobFilterMode from '@renderer/features/JobFilterMode/index.vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRoute } from 'vue-router'
 const { embedded = false } = defineProps<{ embedded?: boolean }>()
-const router = useRouter()
 const route = useRoute()
 import { gtagRenderer as baseGtagRenderer } from '@renderer/utils/gtag'
 import { JobDetailRegExpMatchLogic } from '@geekgeekrun/sqlite-plugin/src/enums'
-import { ArrowDown } from '@element-plus/icons-vue'
+import { QuestionFilled } from '@element-plus/icons-vue'
 
 import {
   getJobDetailRegExpMatchLogicConfig,
   expectCompanyTemplateList,
   blockCompanyNameRegExpTemplateList,
-  getHandlerForBlockCompanyNameRegExpTemplateClicked,
-  getHandlerForExpectCompanyTemplateClicked,
-  getHandlerForExpectJobFilterTemplateClicked,
   getRuleOfExpectJobNameRegExpStr,
   getRuleOfExpectJobDescRegExpStr,
   getRuleOfExpectJobTypeRegExpStr,
@@ -302,8 +243,10 @@ import {
   jobDetailRegExpMatchLogicOptions
 } from '../MainLayout/GeekAutoStartChatWithBoss/common'
 import { computed, ref, onActivated, nextTick, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import TemplatePicker from '@renderer/features/PersonalTemplates/TemplatePicker.vue'
+import { useAutoSave } from '@renderer/composables/useAutoSave'
 import expectJobFilterTemplateList from '../MainLayout/GeekAutoStartChatWithBoss/expectJobFilterTemplateList'
+
 const { ipcRenderer } = window.electron
 const gtagRenderer = (name, params?: object) => {
   return baseGtagRenderer(name, {
@@ -312,7 +255,13 @@ const gtagRenderer = (name, params?: object) => {
   })
 }
 
-const emptyAnnotations = () => Object.fromEntries(['experienceName', 'jobName', 'positionName', 'postDescription'].map(key => [key, { note: '', examples: '' }]))
+const emptyAnnotations = () =>
+  Object.fromEntries(
+    ['experienceName', 'jobName', 'positionName', 'postDescription'].map((key) => [
+      key,
+      { note: '', examples: '' }
+    ])
+  )
 const formContent = ref({
   regexAnnotations: emptyAnnotations(),
   expectCompanies: '',
@@ -323,6 +272,21 @@ const formContent = ref({
   expectWorkExpRegExpStr: '',
   blockCompanyNameRegExpStr: ''
 })
+
+const jobRegexTemplate = computed(() => ({
+  expectJobNameRegExpStr: formContent.value.expectJobNameRegExpStr,
+  expectJobTypeRegExpStr: formContent.value.expectJobTypeRegExpStr,
+  expectJobDescRegExpStr: formContent.value.expectJobDescRegExpStr,
+  jobDetailRegExpMatchLogic: formContent.value.jobDetailRegExpMatchLogic,
+  regexAnnotations: { jobName: formContent.value.regexAnnotations.jobName, positionName: formContent.value.regexAnnotations.positionName, postDescription: formContent.value.regexAnnotations.postDescription }
+}))
+function applyJobRegexTemplate(value: any) {
+  formContent.value.expectJobNameRegExpStr = value.expectJobNameRegExpStr
+  formContent.value.expectJobTypeRegExpStr = value.expectJobTypeRegExpStr
+  formContent.value.expectJobDescRegExpStr = value.expectJobDescRegExpStr
+  formContent.value.jobDetailRegExpMatchLogic = value.jobDetailRegExpMatchLogic
+  Object.assign(formContent.value.regexAnnotations, value.regexAnnotations)
+}
 
 const jobDetailRegExpSectionEl = ref<HTMLDivElement>()
 const blockCompanyNameRegExpSectionEl = ref<HTMLDivElement>()
@@ -349,66 +313,59 @@ const formRules = computed(() => ({
   }
 }))
 
-const handleBlockCompanyNameRegExpTemplateClicked =
-  getHandlerForBlockCompanyNameRegExpTemplateClicked({
-    gtagRenderer,
-    formContent
-  })
-
-const handleExpectCompanyTemplateClicked = getHandlerForExpectCompanyTemplateClicked({
-  gtagRenderer,
-  formContent
-})
-
-const handleExpectJobFilterTemplateClicked = getHandlerForExpectJobFilterTemplateClicked({
-  gtagRenderer,
-  formContent
-})
-
-
-function handleCancel() {
-  //
-  if (embedded) router.push('/main-layout/SettingsPreview')
-  else window.close()
-}
-
 const formRef = ref()
-async function handleSave() {
-  await formRef.value?.validate()
-  await ipcRenderer.invoke(
-    'save-common-job-condition-config',
-    JSON.parse(
-      JSON.stringify({
-        ...formContent.value,
-        expectCompanies: formContent.value.expectCompanies
-          ? formContent.value.expectCompanies.split(',').map((s) => s.trim())
+let loaded = false
+const autosave = useAutoSave(
+  () => formContent.value,
+  (value) =>
+    ipcRenderer.invoke(
+      'save-common-job-condition-config',
+      {
+        ...value,
+        expectCompanies: value.expectCompanies
+          ? value.expectCompanies.split(',').map((s) => s.trim())
           : []
-      })
+      },
+      { embedded: true }
     ),
-    { embedded }
-  )
-  if (embedded) ElMessage.success('公共职位筛选条件已保存，预览将按新规则显示')
-  else ipcRenderer.send('common-job-condition-config-done')
-}
+  () => loaded
+)
 
 async function revealSetting() {
   const focus = String(route.query.focus || '')
-  if (!['companies', 'regex', 'jobName', 'positionName', 'postDescription', 'experienceName'].includes(focus)) return
+  if (
+    ![
+      'companies',
+      'regex',
+      'jobName',
+      'positionName',
+      'postDescription',
+      'experienceName'
+    ].includes(focus)
+  )
+    return
   await nextTick()
-  const section: HTMLElement | undefined = formRef.value?.$el?.querySelector(`[data-setting="${focus}"]`)
+  const section: HTMLElement | undefined = formRef.value?.$el?.querySelector(
+    `[data-setting="${focus}"]`
+  )
   const input = section?.querySelector<HTMLTextAreaElement>('textarea')
   const target = focus !== 'companies' && input ? input : section
   target?.scrollIntoView({ block: 'center' })
   target?.focus({ preventScroll: true })
 }
 watch(() => route.query.focus, revealSetting)
+
 async function loadSettings() {
+  loaded = false
   const res = await ipcRenderer.invoke('fetch-config-file-content')
   const commonJobConditionConfig = res.config?.['common-job-condition-config.json'] ?? {}
   Object.keys(formContent.value).forEach((key) => {
     if (key in commonJobConditionConfig) {
       if (key === 'regexAnnotations') {
-        formContent.value.regexAnnotations = { ...emptyAnnotations(), ...commonJobConditionConfig[key] }
+        formContent.value.regexAnnotations = {
+          ...emptyAnnotations(),
+          ...commonJobConditionConfig[key]
+        }
       } else if (key === 'expectCompanies') {
         formContent.value[key] = (commonJobConditionConfig[key] ?? []).join(',')
       } else {
@@ -416,24 +373,104 @@ async function loadSettings() {
       }
     }
   })
+  await nextTick()
+  loaded = true
   await revealSetting()
 }
 loadSettings()
 onActivated(loadSettings)
 </script>
 
-<style lang="scss">
-.common-job-condition-config { height: 100vh; display: flex; flex-direction: column; min-width: 0; overflow: hidden; color: var(--el-text-color-primary); background: var(--el-bg-color); font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', Arial, sans-serif; font-size: 14px; }
-.common-job-condition-config .window-heading { width: 100%; max-width: 1048px; box-sizing: border-box; padding: 24px 24px 0; margin: 0 auto; flex-shrink: 0; }
-.common-job-condition-config h2 { margin: 0; font-size: 24px; font-weight: 600; }.common-job-condition-config h3 { margin: 0 0 16px; font-size: 16px; font-weight: 600; }.common-job-condition-config .window-heading p { margin: 6px 0 0; color: var(--el-text-color-secondary); font-size: 13px; line-height: 1.6; }
-.common-job-condition-config .main-wrapper { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; }
-.common-job-condition-config .common-config-form { width: 100%; max-width: 1048px; box-sizing: border-box; padding: 20px 24px; margin: 0 auto; }
-.common-job-condition-config .settings-card { min-width: 0; padding: 22px; margin-bottom: 16px; border: 1px solid var(--el-border-color-light); border-radius: 12px; background: var(--el-bg-color); box-shadow: 0 2px 8px rgba(15, 23, 42, .025); }
-.common-job-condition-config .settings-footer { flex-shrink: 0; padding: 16px 0; border-top: 1px solid var(--el-border-color-light); background: var(--el-bg-color); }
-.common-job-condition-config .el-form-item__content { min-width: 0; }.common-job-condition-config textarea { line-height: 1.7; }.common-job-condition-config .job-detail-filter-wrap { margin-top: 12px; }
-@media (max-width: 700px) { .common-job-condition-config .settings-card { padding: 16px; }.common-job-condition-config .common-config-form { padding: 16px; } }
-.common-job-condition-config .el-form-item__error.el-form-item__error--inline {
-  margin-left: 0;
+<style scoped lang="scss">
+.common-job-condition-config {
+  height: 100vh;
+  overflow-y: auto;
+  background-color: var(--el-bg-color-page);
+
+  &.embedded {
+    height: auto;
+    flex: 0 0 auto;
+    overflow: visible;
+  }
 }
-.common-job-condition-config.embedded { height: 100%; flex: 1; min-height: 0; }
+
+.two-col-cards {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 920px) {
+  .two-col-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.rule-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.9fr);
+  gap: 14px;
+}
+
+@media (max-width: 820px) {
+  .rule-pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.logic-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.logic-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--el-text-color-regular);
+}
+
+.regex-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.regex-block {
+  padding: 14px 16px;
+  border-radius: 10px;
+  background-color: var(--el-fill-color-lighter);
+  border: 1px solid var(--el-border-color-lighter);
+}
+
+.regex-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.muted-tag {
+  font-size: 11.5px;
+  color: var(--el-text-color-secondary);
+}
+
+.logic-connector {
+  display: flex;
+  justify-content: center;
+  margin: -2px 0;
+}
+
+.mb0 {
+  margin-bottom: 0;
+}
+
+.mt16 {
+  margin-top: 16px;
+}
 </style>

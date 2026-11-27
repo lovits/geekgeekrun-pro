@@ -86,13 +86,14 @@
             </div>
             <div v-if="element.type === 'search'">
               <div flex flex-items-center>
-                <span color-orange align-self-end mr10px>
+                <span v-if="getSearchSourceTipText(element)" class="source-tip">
                   {{ getSearchSourceTipText(element) }}
                 </span>
                 <el-button
                   p-0
                   h-fit
-                  type="text"
+                  link
+                  type="primary"
                   @click="
                     () => {
                       addSearchKeyword(element)
@@ -278,17 +279,17 @@ const searchKeywordCountMap = computed(() => {
 
 const getSearchSourceTipText = (element) => {
   if (!element?.children?.length) {
-    return `添加一个关键词后方可启用->`
+    return `请先添加搜索关键词`
   }
   const seg: string[] = []
   if (element.enabled) {
     if (element.children?.every((it) => !(it.enabled && !!it.keyword?.trim()))) {
-      seg.push(`启用下方任一非空项后方可启用`)
+      seg.push(`请启用至少一个非空关键词`)
     } else if (element.children?.some((it) => it.enabled && !it.keyword?.trim())) {
-      seg.push(`空项会被跳过`)
+      seg.push(`空白关键词将自动跳过`)
     }
     if (Object.values(searchKeywordCountMap.value).some((n) => n > 1)) {
-      seg.push(`重复项仅取第一个启用的项`)
+      seg.push(`重复关键词仅保留首个启用项`)
     }
   }
   return seg.join('；')
@@ -301,25 +302,30 @@ const getSearchSourceTipText = (element) => {
   filter: blur(2px);
 }
 
+.source-tip {
+  color: var(--el-color-warning);
+  font-size: 12px;
+  margin-right: 10px;
+}
+
 .list-group {
   line-height: 32px;
   min-height: 20px;
+  padding-left: 0;
+  margin: 0;
   .list-group {
     margin-left: 20px;
   }
   .list-group-item {
-    background-color: #fff;
+    background-color: var(--el-bg-color);
     list-style: none;
     display: flex;
     flex-direction: column;
-    padding-top: 6px;
-    padding-bottom: 6px;
-    padding-right: 10px;
-    border: 1px solid var(--el-card-border-color);
+    padding: 6px 12px 6px 4px;
+    border: 1px solid var(--el-border-color-light);
     margin-top: 6px;
     margin-bottom: 6px;
-    box-shadow: var(--el-box-shadow-light);
-    border-radius: 4px;
+    border-radius: 8px;
     .inner-content {
       display: flex;
       align-items: center;

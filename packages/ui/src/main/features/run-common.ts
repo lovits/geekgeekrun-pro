@@ -3,7 +3,7 @@ import { daemonEE, sendToDaemon } from '../flow/OPEN_SETTING_WINDOW/connect-to-d
 import { saveAndGetCurrentRunRecord } from '../flow/OPEN_SETTING_WINDOW/utils/db'
 import minimist from 'minimist'
 
-export async function runCommon({ mode, simulationLimit, simulationRunId }: { mode: string; simulationLimit?: number; simulationRunId?: string }) {
+export async function runCommon({ mode, simulationLimit, simulationRunId, scheduled = false, keepHostAlive = false }: { mode: string; simulationLimit?: number; simulationRunId?: string; scheduled?: boolean; keepHostAlive?: boolean }) {
   await sendToDaemon(
     {
       type: 'user-process-register'
@@ -35,10 +35,12 @@ export async function runCommon({ mode, simulationLimit, simulationRunId }: { mo
   const currentRunRecord = (await saveAndGetCurrentRunRecord())?.data
   const subProcessEnv = {
     ...process.env,
+    ...(scheduled ? { GEEKGEEKRUN_SCHEDULED_CHAT: '1' } : {}),
     GEEKGEEKRUND_NO_AUTO_RESTART_EXIT_CODE: [
       AUTO_CHAT_ERROR_EXIT_CODE.PUPPETEER_IS_NOT_EXECUTABLE,
       AUTO_CHAT_ERROR_EXIT_CODE.LOGIN_STATUS_INVALID,
-      AUTO_CHAT_ERROR_EXIT_CODE.LLM_UNAVAILABLE
+      AUTO_CHAT_ERROR_EXIT_CODE.LLM_UNAVAILABLE,
+      AUTO_CHAT_ERROR_EXIT_CODE.SCHEDULE_CLOSED
     ].join(',')
   }
   const args =
@@ -52,13 +54,14 @@ export async function runCommon({ mode, simulationLimit, simulationRunId }: { mo
       workerId: mode,
       command: process.argv[0],
       args,
-      env: subProcessEnv
+      env: subProcessEnv,
+      keepAliveOnDisconnect: Boolean(keepHostAlive || globalThis.GEEKGEEKRUN_PROCESS_ROLE === 'ui')
     },
     {
       needCallback: true
     }
   )
-  daemonEE.on('message', (message) => {
+  if (!keepHostAlive) daemonEE.on('message', (message) => {
     if (message.type === 'worker-exited') {
       if (
         message.workerId === mode &&

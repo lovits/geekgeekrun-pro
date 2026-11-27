@@ -91,9 +91,9 @@ const stepsForRender = computed(() => {
   return clonedSteps
 })
 const runningStatusTextMapByCode = {
-  [RUNNING_STATUS_ENUM.RUNNING]: '正在运行中',
-  [RUNNING_STATUS_ENUM.NORMAL_EXITED]: '程序已正常退出',
-  [RUNNING_STATUS_ENUM.ERROR_EXITED]: '程序异常退出'
+  [RUNNING_STATUS_ENUM.RUNNING]: '正在运行',
+  [RUNNING_STATUS_ENUM.NORMAL_EXITED]: '任务已结束',
+  [RUNNING_STATUS_ENUM.ERROR_EXITED]: '任务异常中止'
 }
 const currentRunningStatus = ref(RUNNING_STATUS_ENUM.RUNNING)
 function fillEmptySteps() {
@@ -167,7 +167,6 @@ function messageHandler(_ev, { data }) {
   targetStep.status = stepStatus
 }
 const unListenMessage = ipcRenderer.on('worker-to-gui-message', messageHandler)
-onUnmounted(unListenMessage)
 
 const isDialogVisible = ref(false)
 const show = () => {
@@ -190,12 +189,9 @@ defineExpose({
   show,
   hide
 })
-ipcRenderer.on('worker-exited', (_ev, payload) => {
+const unListenWorkerExited = ipcRenderer.on('worker-exited', (_ev, payload) => {
   const { workerId, code } = payload
-  if (
-    workerId !== props.workerId
-    // || runRecordId !== props.runRecordId
-  ) {
+  if (workerId !== props.workerId) {
     return
   }
   if (code !== AUTO_CHAT_ERROR_EXIT_CODE.NORMAL) {
@@ -212,6 +208,10 @@ ipcRenderer.on('worker-exited', (_ev, payload) => {
     })
   }
 })
+onUnmounted(() => {
+  unListenMessage?.()
+  unListenWorkerExited?.()
+})
 </script>
 
 <style lang="scss">
@@ -219,10 +219,10 @@ ipcRenderer.on('worker-exited', (_ev, payload) => {
   position: absolute;
   width: 100%;
   height: 100%;
-  backdrop-filter: blur(3px);
+  backdrop-filter: blur(4px);
 
   background-color: transparent;
-  background-image: radial-gradient(transparent 1px, #fff 1px);
+  background-image: radial-gradient(transparent 1px, var(--ggr-overlay-dot) 1px);
   background-size: 4px 4px;
 
   .el-overlay-dialog {
@@ -238,15 +238,8 @@ ipcRenderer.on('worker-exited', (_ev, payload) => {
     .el-dialog__header {
       display: none;
     }
-    .el-dialog__body {
-      // overflow: hidden;
-    }
     .dialog-header {
       display: none;
-      // display: flex;
-      // justify-content: center;
-      // border-radius: 20px 20px 0 0;
-      // overflow: hidden;
     }
     background-color: transparent;
     box-shadow: none;
@@ -254,11 +247,11 @@ ipcRenderer.on('worker-exited', (_ev, payload) => {
     border-radius: 0;
     .dialog-main {
       box-sizing: border-box;
-      background: var(--el-dialog-bg-color);
-      box-shadow: var(--el-dialog-box-shadow);
-      padding: var(--el-dialog-padding-primary);
-      //border-radius: 0 0 20px 20px;
-      border-radius: 20px;
+      background: var(--el-bg-color-overlay);
+      border: 1px solid var(--el-border-color-light);
+      box-shadow: var(--ggr-card-hover-shadow);
+      padding: 22px 24px;
+      border-radius: 14px;
     }
   }
 }

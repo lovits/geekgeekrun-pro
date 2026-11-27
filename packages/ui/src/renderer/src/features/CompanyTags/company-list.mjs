@@ -11,7 +11,7 @@ export function companyEntries(value = '', regex = false) {
         ? alternative.elements.map(node => String.fromCodePoint(node.value)).join('')
         : describeRegex(alternative.raw).rules.map(rule => `${rule.label}：${rule.items.join('、')}`).join('；')
     }))
-  } catch { return [{ source: value, label: '需核对的已有公司规则' }] }
+  } catch { return [{ source: value, label: '自定义正则规则（可在正则设置中查看）' }] }
 }
 
 export function addCompany(value, company, regex = false) {

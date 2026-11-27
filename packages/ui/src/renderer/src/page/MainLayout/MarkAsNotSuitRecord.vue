@@ -1,62 +1,11 @@
 <template>
-  <div class="page-wrap runtime-record-page flex flex-col of-hidden">
-    <div v-loading="isTableLoading" class="flex-1 of-hidden">
-      <div ref="tableContainerEl" class="h-100% of-hidden">
-        <ElTable
-          ref="tableRef"
-          :max-height="tableMaxHeight"
-          :data="tableData"
-          :row-key="getRowKey"
-          size="small"
-          table-layout="fixed"
-          highlight-current-row
-        >
-          <ElTableColumn prop="companyName" label="公司"  min-width="100" show-overflow-tooltip />
-          <ElTableColumn prop="jobName" label="职位名称"  min-width="170" show-overflow-tooltip />
-          <ElTableColumn prop="positionName" label="职位分类"  min-width="85" show-overflow-tooltip />
-          <ElTableColumn
-            prop="date"
-            label="标记时间"
-            :formatter="
-              (_row, _col, val) => transformUtcDateToLocalDate(val).format('YYYY-MM-DD HH:mm:ss')
-            "
-           min-width="145" show-overflow-tooltip />
-          <ElTableColumn prop="bossName" label="BOSS" width="64"  show-overflow-tooltip />
-          <ElTableColumn prop="markReason" label="标记原因" width="250">
-            <template #default="{ row }">
-              <el-tooltip :content="(markReasonTopicMap[row.markReason] || '原因未记录') + '\n' + formatMarkReason(row)" placement="top" :show-after="300" popper-class="runtime-record-reason-tooltip">
-                <div class="record-reason-preview" tabindex="0"><strong>{{ markReasonTopicMap[row.markReason] || '原因未记录' }}</strong> {{ formatMarkReason(row) }}</div>
-              </el-tooltip>
-            </template>
-          </ElTableColumn>
-          <ElTableColumn prop="experienceName" label="工作经验"  min-width="95" show-overflow-tooltip />
-          <ElTableColumn
-            label="薪资"
-            :formatter="(row) => formatJobSalary(row)"
-           min-width="100" show-overflow-tooltip />
-          <ElTableColumn label="职位信息" fixed="right" :width="120">
-            <template #default="{ row }">
-              <ElButton
-                link
-                type="primary"
-                size="small"
-                @click="handleViewJobSnapshotButtonClick(row)"
-                >快照</ElButton
-              >
-              <ElButton
-                link
-                type="primary"
-                size="small"
-                @click="handleViewJobOnlineButtonClick(row.encryptJobId)"
-                >详情</ElButton
-              >
-            </template>
-          </ElTableColumn>
-        </ElTable>
+  <div class="ggr-table-page runtime-record-page">
+    <header class="ggr-page-header">
+      <div>
+        <h2 class="ggr-page-title">不合适记录</h2>
+        <p class="ggr-page-desc">被筛选规则、BOSS 活跃度或手动排除的职位记录及具体排除原因</p>
       </div>
-    </div>
-    <div class="flex flex-0 flex-justify-between pt10px pb10px">
-      <div class="w100px">
+      <div class="ggr-header-actions">
         <el-button
           :loading="isTableLoading"
           size="small"
@@ -66,9 +15,64 @@
               getMarkAsNotSuitRecord()
             }
           "
-          >刷新</el-button
         >
+          刷新
+        </el-button>
+        <RecordExport scope="unsuitable" />
       </div>
+    </header>
+
+    <div v-loading="isTableLoading" class="table-card">
+      <div ref="tableContainerEl" class="h-100% of-hidden">
+        <ElTable
+          ref="tableRef"
+          :max-height="tableMaxHeight"
+          :data="tableData"
+          :row-key="getRowKey"
+          size="small"
+          table-layout="fixed"
+          highlight-current-row
+          empty-text="暂无不合适记录"
+        >
+          <ElTableColumn prop="companyName" label="公司" min-width="110" show-overflow-tooltip />
+          <ElTableColumn prop="jobName" label="职位名称" min-width="170" show-overflow-tooltip />
+          <ElTableColumn prop="positionName" label="职位分类" min-width="90" show-overflow-tooltip />
+          <ElTableColumn
+            prop="date"
+            label="排除时间"
+            :formatter="(_row, _col, val) => transformUtcDateToLocalDate(val).format('YYYY-MM-DD HH:mm:ss')"
+            min-width="150"
+            show-overflow-tooltip
+          />
+          <ElTableColumn prop="bossName" label="BOSS" width="76" show-overflow-tooltip />
+          <ElTableColumn prop="markReason" label="排除原因" min-width="240">
+            <template #default="{ row }">
+              <el-tooltip
+                :content="(markReasonTopicMap[row.markReason] || '原因未记录') + '\n' + formatMarkReason(row)"
+                placement="top"
+                :show-after="300"
+                popper-class="runtime-record-reason-tooltip"
+              >
+                <div class="record-reason-preview" tabindex="0">
+                  <strong>{{ markReasonTopicMap[row.markReason] || '原因未记录' }}</strong>
+                  {{ formatMarkReason(row) }}
+                </div>
+              </el-tooltip>
+            </template>
+          </ElTableColumn>
+          <ElTableColumn prop="experienceName" label="工作经验" min-width="95" show-overflow-tooltip />
+          <ElTableColumn label="薪资" :formatter="(row) => formatJobSalary(row)" min-width="105" show-overflow-tooltip />
+          <ElTableColumn label="操作" fixed="right" :width="105">
+            <template #default="{ row }">
+              <ElButton link type="primary" size="small" @click="handleViewJobSnapshotButtonClick(row)">快照</ElButton>
+              <ElButton link type="primary" size="small" @click="handleViewJobOnlineButtonClick(row.encryptJobId)">网页</ElButton>
+            </template>
+          </ElTableColumn>
+        </ElTable>
+      </div>
+    </div>
+
+    <div class="pager-bar">
       <ElPagination
         v-model:current-page="pagination.pageNo"
         v-model:page-size="pagination.pageSize"
@@ -80,9 +84,9 @@
         @size-change="getMarkAsNotSuitRecord"
         @current-change="getMarkAsNotSuitRecord"
       />
-      <div class="w100px"><RecordExport scope="unsuitable" /></div>
     </div>
-    <ElDrawer v-model="drawVisibleModelValue" size="400px">
+
+    <ElDrawer v-model="drawVisibleModelValue" title="职位详情快照" size="min(520px, 90vw)">
       <JobInfoSnapshot
         v-if="selectedJobInfoForViewSnapshot"
         :job-info="selectedJobInfoForViewSnapshot"
@@ -123,6 +127,7 @@ const getRowKey = (row: VMarkAsNotSuitLog) => {
 }
 const tableRef = ref<InstanceType<typeof ElTable>>()
 const isTableLoading = ref(false)
+
 async function getMarkAsNotSuitRecord() {
   try {
     gtagRenderer('mansr_request_sent', {
@@ -158,7 +163,9 @@ async function getMarkAsNotSuitRecord() {
   }
 }
 
-useRecordAutoRefresh(async () => { if (!isTableLoading.value) await getMarkAsNotSuitRecord() })
+useRecordAutoRefresh(async () => {
+  if (!isTableLoading.value) await getMarkAsNotSuitRecord()
+})
 
 const tableMaxHeight = ref<number | undefined>(undefined)
 const tableContainerEl = ref<HTMLElement>()
@@ -190,114 +197,62 @@ function handleViewJobSnapshotButtonClick(record: VMarkAsNotSuitLog) {
 }
 
 const markReasonTopicMap = {
-  [MarkAsNotSuitReason.BOSS_INACTIVE]: 'BOSS不活跃',
+  [MarkAsNotSuitReason.BOSS_INACTIVE]: 'BOSS 不活跃',
   [MarkAsNotSuitReason.USER_MANUAL_OPERATION_WITH_UNKNOWN_REASON]: '手动标记不合适',
-  [MarkAsNotSuitReason.JOB_NOT_SUIT]: '职位不合适',
-  [MarkAsNotSuitReason.JOB_CITY_NOT_SUIT]: '工作地不合适',
-  [MarkAsNotSuitReason.JOB_WORK_EXP_NOT_SUIT]: '工作经验不合适',
-  [MarkAsNotSuitReason.JOB_SALARY_NOT_SUIT]: '薪资不合适',
-  [MarkAsNotSuitReason.COMPANY_NAME_NOT_SUIT]: '公司名称不匹配'
+  [MarkAsNotSuitReason.JOB_NOT_SUIT]: '职位条件不符',
+  [MarkAsNotSuitReason.JOB_CITY_NOT_SUIT]: '工作城市不符',
+  [MarkAsNotSuitReason.JOB_WORK_EXP_NOT_SUIT]: '经验要求不符',
+  [MarkAsNotSuitReason.JOB_SALARY_NOT_SUIT]: '薪资范围不符',
+  [MarkAsNotSuitReason.COMPANY_NAME_NOT_SUIT]: '命中屏蔽公司'
 }
 
 function formatMarkReason(row: VMarkAsNotSuitLog) {
   let saved: any = null
-  try { saved = JSON.parse(row.extInfo) } catch {}
+  try {
+    saved = JSON.parse(row.extInfo)
+  } catch {}
   if (saved?.reason) return saved.reason
-  if (row.markReason === MarkAsNotSuitReason.JOB_NOT_SUIT) return '历史记录未保存具体排除依据，不能据此判断职责不匹配。'
-  if (row.markReason === MarkAsNotSuitReason.BOSS_INACTIVE && !saved?.bossActiveTimeDesc) return '历史记录未保存BOSS活跃时间，需线上重新核验。'
+  if (row.markReason === MarkAsNotSuitReason.JOB_NOT_SUIT)
+    return '早期记录未保存具体排除原因'
+  if (row.markReason === MarkAsNotSuitReason.BOSS_INACTIVE && !saved?.bossActiveTimeDesc)
+    return '早期记录未保存 BOSS 活跃时间'
+
+  const extInfo = saved
   switch (row.markReason) {
-    case MarkAsNotSuitReason.BOSS_INACTIVE: {
-      const extInfo = (() => {
-        try {
-          return JSON.parse(row.extInfo)
-        } catch {
-          return null
-        }
-      })()
+    case MarkAsNotSuitReason.BOSS_INACTIVE:
       return [
-        extInfo?.bossActiveTimeDesc && `BOSS活跃情况：${extInfo.bossActiveTimeDesc}`,
-        extInfo?.chosenReasonInUi?.text && `BOSS选项内容：${extInfo.chosenReasonInUi.text}`
+        extInfo?.bossActiveTimeDesc && `BOSS 活跃时间：${extInfo.bossActiveTimeDesc}`,
+        extInfo?.chosenReasonInUi?.text && `页面选择的排除原因：${extInfo.chosenReasonInUi.text}`
       ]
         .filter(Boolean)
         .join('\n')
-    }
-    case MarkAsNotSuitReason.USER_MANUAL_OPERATION_WITH_UNKNOWN_REASON: {
-      const extInfo = (() => {
-        try {
-          return JSON.parse(row.extInfo)
-        } catch {
-          return null
-        }
-      })()
-      return [extInfo?.chosenReasonInUi?.text && `BOSS选项内容：${extInfo.chosenReasonInUi.text}`]
-        .filter(Boolean)
-        .join('\n')
-    }
-    case MarkAsNotSuitReason.JOB_WORK_EXP_NOT_SUIT:
-    case MarkAsNotSuitReason.JOB_CITY_NOT_SUIT: {
-      const extInfo = (() => {
-        try {
-          return JSON.parse(row.extInfo)
-        } catch {
-          return null
-        }
-      })()
-      return [extInfo?.chosenReasonInUi?.text && `BOSS选项内容：${extInfo.chosenReasonInUi.text}`]
-        .filter(Boolean)
-        .join('\n')
-    }
-    case MarkAsNotSuitReason.JOB_SALARY_NOT_SUIT: {
-      const extInfo = (() => {
-        try {
-          return JSON.parse(row.extInfo)
-        } catch {
-          return null
-        }
-      })()
+    case MarkAsNotSuitReason.JOB_SALARY_NOT_SUIT:
       return [
         extInfo?.salaryDesc && `薪资：${extInfo.salaryDesc}`,
-        extInfo?.chosenReasonInUi?.text && `BOSS选项内容：${extInfo.chosenReasonInUi.text}`
+        extInfo?.chosenReasonInUi?.text && `页面选择的排除原因：${extInfo.chosenReasonInUi.text}`
       ]
         .filter(Boolean)
         .join('\n')
-    }
-    case MarkAsNotSuitReason.COMPANY_NAME_NOT_SUIT: {
-      const extInfo = (() => {
-        try {
-          return JSON.parse(row.extInfo)
-        } catch {
-          return null
-        }
-      })()
-      return [extInfo?.chosenReasonInUi?.text && `BOSS选项内容：${extInfo.chosenReasonInUi.text}`]
-        .filter(Boolean)
-        .join('\n')
-    }
-    default: {
-      return ''
-    }
+    default:
+      return extInfo?.chosenReasonInUi?.text
+        ? `页面选择的排除原因：${extInfo.chosenReasonInUi.text}`
+        : ''
   }
 }
 </script>
 
 <style scoped lang="scss">
-.page-wrap {
-  margin: 0 auto;
-  max-width: 1000px;
-  max-height: 100vh;
+.table-card {
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
-  padding-left: 20px;
-  padding-top: 20px;
-  :deep(.el-drawer) {
-    .el-drawer__header {
-      padding: 16px 20px;
-      margin-bottom: 0;
-    }
-    .el-drawer__body {
-      padding: 0;
-      margin: 0 0 20px 20px;
-      padding-right: 20px;
-    }
-  }
+  border-radius: 10px;
+  border: 1px solid var(--el-border-color-light);
+  background-color: var(--el-bg-color);
+}
+.pager-bar {
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
 }
 </style>

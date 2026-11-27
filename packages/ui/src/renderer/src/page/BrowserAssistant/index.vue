@@ -1,190 +1,86 @@
 <template>
   <div class="browser-preferences" :class="{ embedded }">
-    <header v-if="embedded" class="window-heading"><h2>浏览器偏好</h2></header>
-    <div flex-1 of-hidden w-full>
-      <el-form ref="formRef" :model="formData" :rules="rules" flex flex-col of-hidden h-full>
-        <div class="bg-#f6f6f6" flex-0>
-          <el-form-item
-            class="w-90%"
-            label="浏览器可执行文件路径"
-            label-position="top"
-            prop="browserPath"
-            pt30px
-            pb30px
-            ml-auto
-            mr-auto
-            mb-0
-          >
-            <div flex flex-1>
-              <el-input v-model="formData.browserPath" @change="handleSave" />
+    <div class="ggr-page">
+      <header class="ggr-page-header">
+        <div>
+          <h2 class="ggr-page-title">{{ embedded ? '浏览器设置' : '配置招聘浏览器' }}</h2>
+          <p class="ggr-page-desc">选择供自动化流程调用的 Chromium 内核浏览器（推荐使用 Chrome 或 Edge）</p>
+        </div>
+      </header>
+
+      <section class="ggr-card">
+        <div class="ggr-card-header">
+          <h3 class="ggr-card-title">浏览器可执行文件路径</h3>
+        </div>
+        <el-form ref="formRef" :model="formData" :rules="rules" label-position="top">
+          <el-form-item prop="browserPath" class="mb0">
+            <div class="path-row">
+              <el-input
+                v-model="formData.browserPath"
+                class="ggr-mono path-input"
+                placeholder="点击右侧「自动检测」查找本机 Chrome / Edge，或手动选择可执行文件"
+                @change="handleSave"
+              />
               <el-button
                 type="primary"
                 :loading="isAutoDetectLoading"
                 @click="autoDetectPuppeteerExecutable"
-                >自动检测</el-button
               >
-              <el-button :style="{ marginLeft: 0 }" @click="chooseExecutableFile"
-                >手动选择</el-button
-              >
+                自动检测
+              </el-button>
+              <el-button @click="chooseExecutableFile">手动选择</el-button>
             </div>
           </el-form-item>
-        </div>
-        <div flex-1 of-auto font-size-14px line-height-1.5em>
-          <div mt10px ml-auto mr-auto class="w-90%">
-            <div>常见问题</div>
-            <div ref="faqMainRef" class="faq-main">
-              <details class="faq-item" data-faq-id="cannot-auto-find-executable">
-                <summary>“自动检测”点击后提示“未检测到可用浏览器的可执行文件”？</summary>
-                <div class="faq-answer">
-                  请尝试如下方案之一来处理：
-                  <ul pl1em m0>
-                    <li>
-                      方案一：通过本程序下载 Google Chrome for Testing
-                      {{ EXPECT_CHROMIUM_BUILD_ID }} -
-                      <a href="javascript:;" @click="handleClickLaunchBrowserDownloader">点击此处</a
-                      >即可下载；这个浏览器仅供本程序使用，不会影响到当前 Google Chrome
-                      安装。本程序开发过程中主要是使用这个浏览器测试的，<span color-orange
-                        >可以保证兼容性</span
-                      >。网络波动，有一定概率下载失败；如多次尝试后确实不能下载成功，请尝试方案二。<span
-                        color-orange
-                        >（推荐）</span
-                      >
-                    </li>
-                    <li>
-                      方案二：手动安装 Google Chrome 最新版本 -
-                      <a href="javascript:;" @click="handleOpenChromeDownloadPage">点击此处</a>打开
-                      Google Chrome
-                      官方网站，找到浏览器下载页面来下载安装程序。下载完毕后，执行安装程序。安装完成后，点击上方<a
-                        href="javascript:;"
-                        :loading="isAutoDetectLoading"
-                        @click="autoDetectPuppeteerExecutable"
-                        >自动检测</a
-                      >按钮再次尝试。截至本程序开发时（2026.2.7）Google Chrome 最新版本为
-                      144.0.7559.133
-                      ，多数情况下本程序都可以正常工作，但由于浏览器会自动升级，版本不固定，可能存在<span
-                        color-orange
-                        >浏览器升级后某些功能不兼容导致本程序不能正确运行</span
-                      >的问题。如果您确实遇到不能正常运行的问题，请<a
-                        href="javascript:;"
-                        @click="handleFeedbackClick"
-                        >提交 Issue</a
-                      >来反馈，同时请再尝试方案一。
-                    </li>
-                  </ul>
-                </div>
-              </details>
-              <details class="faq-item" data-faq-id="manual-select-browser-prerequisite">
-                <summary>
-                  如果要手动选择浏览器，可选择的浏览器有哪些？对于浏览器有什么要求？
-                </summary>
-                <div class="faq-answer">
-                  <div>
-                    截至本程序开发时（2026.2.7），已确定支持的各操作系统下的浏览器及版本包括：
-                  </div>
-                  <ul>
-                    <li>
-                      <div>macOS</div>
-                      <ul>
-                        <li>Google Chrome for Testing {{ EXPECT_CHROMIUM_BUILD_ID }}</li>
-                        <li>Google Chrome 144.0.7559.133</li>
-                        <li>Microsoft Edge 144.0.3719.115</li>
-                      </ul>
-                    </li>
-                    <li>
-                      <div>Windows</div>
-                      <ul>
-                        <li>Google Chrome for Testing {{ EXPECT_CHROMIUM_BUILD_ID }}</li>
-                        <li>Google Chrome 144.0.7559.133</li>
-                        <li>Microsoft Edge 144.0.3719.93</li>
-                        <li>Opera 127.0.5778.14（基于 Chromium 143.0.7499.194）</li>
-                        <li>Yandex Browser 25.12.3.1126 （基于 Chromium 142.0.7444.1126）</li>
-                      </ul>
-                    </li>
-                    <li>
-                      <div>Linux (Ubuntu)</div>
-                      <ul>
-                        <li>Google Chrome for Testing {{ EXPECT_CHROMIUM_BUILD_ID }}</li>
-                      </ul>
-                    </li>
-                  </ul>
-                  <div>
-                    下列浏览器可以使用，但由于Chromium内核版本低于本程序设置的版本，可能存在潜在问题，不一定能完全支持所有功能，你可以尝试进行配置：
-                  </div>
-                  <ul>
-                    <li>
-                      <div>Windows</div>
-                      <ul>
-                        <li>360 安全浏览器 16.1.2552.64 （基于 Chromium 132.0.6834.83）</li>
-                        <li>360 极速浏览器X 23.1.1187.64 （基于 Chromium 132.0.6805.0）</li>
-                        <li>夸克 6.4.0.728 （基于 Chromium 130.0.6723.44）</li>
-                      </ul>
-                    </li>
-                  </ul>
-                  <div>下列浏览器经过测试已明确不可用：</div>
-                  <ul>
-                    <li>
-                      <div>Windows</div>
-                      <ul>
-                        <li>QQ 浏览器 20.1.0 （基于 Chromium 116.0.5845.97）</li>
-                        <li>搜狗高速浏览器 13.8 （基于 Chromium 116.0.5845.97）</li>
-                        <li>猎豹浏览器（基于 Chromium 112.0.5615.138）</li>
-                        <li>Brave 1.86.148 （基于 Chromium 144.0.7559.133）</li>
-                      </ul>
-                    </li>
-                  </ul>
-                  <div>
-                    本程序目前仅支持 Chromium 内核浏览器，因此 Safari、Firefox、Windows Internet
-                    Explorer、旧版 Microsoft Edge 等<span color-orange
-                      >非Chromium内核浏览器无法使用</span
-                    >；同时，对于 Chromium 内核浏览器，本程序<span color-orange
-                      >仅支持
-                      {{ EXPECT_CHROMIUM_BUILD_ID }}
-                      或更高内核版本</span
-                    >，你可以打开在你想要尝试的浏览器，访问 “chrome://version” 找到 “用户代理” /
-                    “User Agent” 行来查看当前浏览器的内核版本。<br />
-                    目前，大部分中国大陆厂商发布的基于Chromium内核的浏览器，均由于版本过低，不被本程序支持。
-                  </div>
-                </div>
-              </details>
-              <details
-                class="faq-item"
-                data-faq-id="what-will-happen-when-select-unsupported-browser"
-              >
-                <summary>如果我选择了一个不支持的浏览器，会发生什么？</summary>
-                <div class="faq-answer">
-                  <div>可能会发生的情况：</div>
-                  <ul>
-                    <li>浏览器将会启动，但会开启一个空白页面，之后浏览器不会做任何事</li>
-                    <li>浏览器启动失败，你不会看到任何界面</li>
-                    <li>浏览器会每隔一段时间打开一个新的浏览器窗口</li>
-                  </ul>
-                </div>
-              </details>
-              <details class="faq-item" data-faq-id="what-will-happen-when-select-other-file">
-                <summary>如果我选择了一个不是浏览器的可执行文件，会发生什么？</summary>
-                <div class="faq-answer">
-                  <div>可能会发生的情况：</div>
-                  <ul>
-                    <li>可执行文件将会启动，但不会受到本程序控制</li>
-                    <li>可执行文件闪退并报错，闪退后会自动重启，继续报错</li>
-                    <li>可执行文件会不断运行多个实例</li>
-                  </ul>
-                </div>
-              </details>
-            </div>
-          </div>
-        </div>
-      </el-form>
-    </div>
+        </el-form>
+      </section>
 
+      <section ref="faqMainRef" class="ggr-card">
+        <div class="ggr-card-header">
+          <h3 class="ggr-card-title">常见问题与支持列表</h3>
+        </div>
+
+        <details class="faq-item" data-faq-id="cannot-auto-find-executable" open>
+          <summary>点击「自动检测」提示未检测到可用浏览器怎么办？</summary>
+          <div class="faq-answer">
+            <ul>
+              <li>
+                <strong>方案一（推荐）：下载专用测试版 Chrome</strong> —
+                <a href="javascript:;" @click="handleClickLaunchBrowserDownloader">点击此处一键下载 Google Chrome for Testing ({{ EXPECT_CHROMIUM_BUILD_ID }})</a>。该浏览器独立存放，不影响你日常使用的 Chrome，且版本固定、兼容性最稳定。
+              </li>
+              <li>
+                <strong>方案二：安装最新版 Google Chrome</strong> —
+                <a href="javascript:;" @click="handleOpenChromeDownloadPage">前往 Chrome 官网下载安装</a>，安装完成后回到本页再次点击
+                <a href="javascript:;" @click="autoDetectPuppeteerExecutable">自动检测</a>。若后续遇到浏览器自动升级引起的不兼容，可随时切换回方案一或
+                <a href="javascript:;" @click="handleFeedbackClick">提交反馈</a>。
+              </li>
+            </ul>
+          </div>
+        </details>
+
+        <details class="faq-item" data-faq-id="manual-select-browser-prerequisite">
+          <summary>手动选择时支持哪些浏览器与系统版本？</summary>
+          <div class="faq-answer">
+            <p>仅支持 <strong>Chromium {{ EXPECT_CHROMIUM_BUILD_ID }} 及以上内核</strong>的浏览器（Safari、Firefox 及低内核国产浏览器无法使用）：</p>
+            <ul>
+              <li><strong>macOS</strong>：Google Chrome for Testing {{ EXPECT_CHROMIUM_BUILD_ID }}、Google Chrome 144+、Microsoft Edge 144+</li>
+              <li><strong>Windows</strong>：Google Chrome for Testing {{ EXPECT_CHROMIUM_BUILD_ID }}、Google Chrome 144+、Microsoft Edge 144+、Opera 127+</li>
+              <li><strong>Linux</strong>：Google Chrome for Testing {{ EXPECT_CHROMIUM_BUILD_ID }}</li>
+            </ul>
+          </div>
+        </details>
+
+        <details class="faq-item" data-faq-id="what-will-happen-when-select-unsupported-browser">
+          <summary>选择了不兼容或非浏览器文件会有什么现象？</summary>
+          <div class="faq-answer">
+            <ul>
+              <li>浏览器打开后停留在空白页无法跳转，或反复重启打开新窗口；</li>
+              <li>若误选普通程序，该程序会自行启动且不受本工具控制，重新在上方点击「自动检测」即可恢复。</li>
+            </ul>
+          </div>
+        </details>
+      </section>
+    </div>
   </div>
-  <!-- <div class="h60px mt14px">
-      <RouterView
-        class="h100%"
-        :dependencies-status="checkDependenciesResult"
-        :process-waitee="downloadProcessWaitee"
-      ></RouterView>
-    </div> -->
 </template>
 
 <script lang="ts" setup>
@@ -195,9 +91,8 @@ import { ElMessage } from 'element-plus'
 import { gtagRenderer as baseGtagRenderer } from '@renderer/utils/gtag'
 import { EXPECT_CHROMIUM_BUILD_ID } from '../../../../common/constant'
 import { sleep } from '@geekgeekrun/utils/sleep.mjs'
+
 const { ipcRenderer } = electron
-// const checkDependenciesResult = ref({})
-// const downloadProcessWaitee = ref(null)
 
 const gtagRenderer = (name, params?: object) => {
   return baseGtagRenderer(name, {
@@ -223,12 +118,12 @@ const rules = {
   browserPath: {
     validator: async (_, value, callback) => {
       if (!value?.trim()) {
-        callback(new Error('请输入浏览器可执行文件路径'))
+        callback(new Error('请选择或输入浏览器可执行文件路径'))
         return
       }
       const err = await ipcRenderer.invoke('check-executable-file', value)
       if (err) {
-        callback(err?.message ?? '文件无效 - 未知原因')
+        callback(err?.message ?? '所选文件不可执行，请核对路径')
       } else {
         callback()
       }
@@ -250,7 +145,7 @@ async function autoDetectPuppeteerExecutable() {
     if (!result) {
       gtagRenderer('auto_detect_pptr_exe_not_found')
       ElMessage({
-        message: '未检测到可用浏览器的可执行文件',
+        message: '未检测到可用浏览器，请按下方常见问题安装或下载专用浏览器',
         type: 'warning',
         grouping: true
       })
@@ -314,7 +209,7 @@ async function handleSave() {
       executablePath: formData.value.browserPath,
       browser: ''
     })
-    if (embedded) ElMessage.success('浏览器偏好已保存')
+    if (embedded) ElMessage.success('浏览器设置已保存')
     else ipcRenderer.send('browser-config-saved')
     gtagRenderer('save_done', {
       executablePath: formData.value.browserPath,
@@ -334,13 +229,12 @@ const handleFeedbackClick = () => {
 }
 const handleClickLaunchBrowserDownloader = async () => {
   gtagRenderer('launch_browser_downloader_clicked')
-  let downloadedBrowserPath
   try {
-    downloadedBrowserPath = await electron.ipcRenderer.invoke('download-browser-with-downloader')
+    const downloadedBrowserPath = await electron.ipcRenderer.invoke('download-browser-with-downloader')
     if (downloadedBrowserPath) {
       formData.value.browserPath = downloadedBrowserPath
       ElMessage({
-        message: '浏览器下载成功，可执行文件路径已填入输入框',
+        message: '专用浏览器下载完成，已自动填入并保存路径',
         type: 'success',
         grouping: true
       })
@@ -348,14 +242,13 @@ const handleClickLaunchBrowserDownloader = async () => {
       gtagRenderer('browser_downloader_done_with_path')
     } else {
       ElMessage({
-        message:
-          '浏览器下载成功，但未返回可执行文件路径。请点击自动检测，或手动选择~/.geekgeekrun/cache/chrome文件夹下的文件，或重新下载',
+        message: '下载已完成，请点击「自动检测」加载路径',
         type: 'success',
         grouping: true
       })
       gtagRenderer('browser_downloader_done_without_path')
     }
-  } catch (err) {
+  } catch {
     gtagRenderer('browser_downloader_cancelled')
   }
 }
@@ -365,10 +258,9 @@ onMounted(() => {
   const faqItemEls = faqMainRef?.value?.querySelectorAll(`details`) ?? []
   for (const el of faqItemEls) {
     el.addEventListener('toggle', () => {
-      const isOpen = el.open
       gtagRenderer('faq_item_toggled', {
         faqId: el.dataset.faqId,
-        isOpen
+        isOpen: el.open
       })
     })
   }
@@ -376,29 +268,82 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
-.browser-preferences { height: 100vh; display: flex; flex-direction: column; min-width: 0; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif; }
-.browser-preferences.embedded { height: 100%; flex: 1; min-height: 0; }
-.window-heading { padding: 24px; } h2 { margin: 0; font-size: 24px; } .window-heading p { color: var(--el-text-color-secondary); font-size: 13px; margin: 6px 0 0; }
+.browser-preferences {
+  height: 100vh;
+  overflow-y: auto;
+  background-color: var(--el-bg-color-page);
 
-a:link,
-a:visited,
-a:hover,
-a:active {
-  color: #409eff;
+  &.embedded {
+    height: auto;
+    flex: 0 0 auto;
+    overflow: visible;
+  }
 }
 
-.faq-main {
-  .faq-item {
-    summary {
-      padding: 4px 0;
+.path-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  flex-wrap: wrap;
+
+  .path-input {
+    flex: 1;
+    min-width: 240px;
+  }
+
+  .el-button + .el-button {
+    margin-left: 0;
+  }
+}
+
+.mb0 {
+  margin-bottom: 0;
+}
+
+.faq-item {
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 10px;
+  background-color: var(--el-fill-color-lighter);
+  padding: 10px 14px;
+
+  & + .faq-item {
+    margin-top: 10px;
+  }
+
+  summary {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--el-text-color-primary);
+    cursor: pointer;
+    line-height: 1.6;
+  }
+
+  .faq-answer {
+    margin-top: 8px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--el-text-color-regular);
+
+    p {
+      margin: 0 0 6px;
     }
-    .faq-answer {
-      color: #666;
-      margin-left: 12px;
-      ul {
-        margin-top: 0;
-        margin-bottom: 0;
-        padding-left: 1em;
+
+    ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    li + li {
+      margin-top: 6px;
+    }
+
+    a {
+      color: var(--el-color-primary);
+      font-weight: 500;
+
+      &:hover {
+        text-decoration: underline;
       }
     }
   }

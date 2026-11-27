@@ -10,6 +10,16 @@ const candidate = {
   patterns: { jobName: '^(?!.*产品).*Agent开发.*实习', postDescription: '后端.*开发' }
 }
 
+test('network boundary blocks a queued greeting when the allowed time window ends', async () => {
+  let allowed=true, listener, outcome
+  const page={setRequestInterception:async()=>{},on:(_,fn)=>{listener=fn}}
+  const guard=await installChatRequestGuard(page,{canSendNow:()=>allowed})
+  guard.approve('job-1')
+  const request=()=>({isInterceptResolutionHandled:()=>false,url:()=> 'https://www.zhipin.com/wapi/zpgeek/friend/add.json?jobId=job-1',abort:async()=>{outcome='blocked'},continue:async()=>{outcome='allowed'}})
+  listener(request());assert.equal(outcome,'allowed')
+  allowed=false;listener(request());assert.equal(outcome,'blocked')
+})
+
 test('final chat check requires the same job, matching company, title and duties', () => {
   assert.equal(canStartChat(candidate), true)
   assert.equal(canStartChat({ ...candidate, selectedJob: { ...candidate.selectedJob, encryptJobId: 'other' } }), false)

@@ -1,5 +1,5 @@
 <template>
-  <el-button size="small" @click="openDialog">{{ label || (scope === 'all' ? '导出记录' : '导出') }}</el-button>
+  <el-button :size="buttonSize" @click="openDialog">{{ label || (scope === 'all' ? '导出记录' : '导出') }}</el-button>
   <el-dialog v-model="visible" title="导出运行记录" width="min(620px, 94vw)" append-to-body :close-on-click-modal="!exporting" :close-on-press-escape="!exporting" :show-close="!exporting">
     <el-form label-position="top" :disabled="exporting">
       <el-form-item label="导出范围"><el-radio-group v-model="selectedScope" class="scope-options"><el-radio-button v-for="(definition, key) in exportScopes" :key="key" :value="key">{{ definition.label }}</el-radio-button></el-radio-group></el-form-item>
@@ -9,7 +9,7 @@
           <el-form-item v-else label="岗位名称关键词"><el-input v-model="filters.job" maxlength="200" clearable placeholder="不限" /></el-form-item>
         </div>
         <template v-if="selectedScope !== 'companies'">
-          <div class="export-fields"><el-form-item label="城市／工作地关键词"><el-input v-model="filters.city" maxlength="200" clearable placeholder="不限" /></el-form-item>
+          <div v-if="selectedScope !== 'replies'" class="export-fields"><el-form-item label="城市／工作地关键词"><el-input v-model="filters.city" maxlength="200" clearable placeholder="不限" /></el-form-item>
             <el-form-item label="喜欢／不喜欢标签"><el-select v-model="filters.feedback" style="width: 100%"><el-option label="全部" value="all" /><el-option label="喜欢" value="like" /><el-option label="不喜欢" value="dislike" /><el-option label="未标记" value="unmarked" /></el-select></el-form-item>
           </div>
           <el-form-item :label="`${exportScopes[selectedScope].dateLabel}范围（北京时间）`"><el-date-picker v-model="filters.dateRange" type="daterange" value-format="YYYY-MM-DD" start-placeholder="开始日期" end-placeholder="结束日期" range-separator="至" style="width: 100%" clearable /></el-form-item>
@@ -30,7 +30,7 @@
 import { reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { exportScopes, exportReasonNames } from '@geekgeekrun/utils/runtime-export.mjs'
-const props = withDefaults(defineProps<{ scope?: 'all' | 'chats' | 'unsuitable' | 'jobs' | 'companies' | 'simulation'; label?: string }>(), { scope: 'all', label: '' })
+const props = withDefaults(defineProps<{ scope?: 'all' | 'chats' | 'replies' | 'unsuitable' | 'jobs' | 'companies' | 'simulation'; label?: string; buttonSize?: 'small' | 'default' }>(), { scope: 'all', label: '', buttonSize: 'small' })
 const visible = ref(false), exporting = ref(false), selectedScope = ref<string>(props.scope), format = ref('json')
 const filters = reactive({ company: '', job: '', city: '', industry: '', feedback: 'all', outcome: 'all', score: 'all', dateRange: [] as string[], markReason: '' as number | string })
 const reasonNames = exportReasonNames

@@ -82,6 +82,11 @@ const runMode = commandlineArgs['mode']
       launchBossSite()
       break
     }
+    case 'hrAutoReplyMain': {
+      const { runEntry } = await import('./flow/HR_AUTO_REPLY_MAIN/index')
+      runEntry()
+      break
+    }
     case 'readNoReplyAutoReminderMain': {
       const { runEntry } = await import('./flow/READ_NO_REPLY_AUTO_REMINDER_MAIN/index')
       runEntry()
@@ -114,6 +119,22 @@ const runMode = commandlineArgs['mode']
     }
     default: {
       globalThis.GEEKGEEKRUN_PROCESS_ROLE = 'ui'
+      const { readConfigFile, writeConfigFile } = await import('@geekgeekrun/geek-auto-start-chat-with-boss/runtime-file-utils.mjs')
+      const boss = readConfigFile('boss.json')
+      const flags = boss.fieldsForUseCommonConfig || {}
+      if (!flags.expectCompanies || !flags.blockCompanyNameRegExpStr) {
+        const common = readConfigFile('common-job-condition-config.json')
+        const targets = readConfigFile('target-company-list.json')
+        await writeConfigFile(`company-rules-backup-${Date.now()}.json`, { common, boss, targets })
+        await writeConfigFile('common-job-condition-config.json', {
+          ...common,
+          expectCompanies: flags.expectCompanies ? common.expectCompanies : targets,
+          blockCompanyNameRegExpStr: flags.blockCompanyNameRegExpStr ? common.blockCompanyNameRegExpStr : boss.blockCompanyNameRegExpStr
+        })
+        await writeConfigFile('boss.json', { ...boss, fieldsForUseCommonConfig: { ...flags, expectCompanies: true, blockCompanyNameRegExpStr: true } })
+      }
+      const hrConfig = readConfigFile('hr-auto-reply.json')
+      if (hrConfig?.enabled) await writeConfigFile('hr-auto-reply.json', { ...hrConfig, enabled: false, enabledAt: 0 })
       await launchDaemon()
       const { openSettingWindow } = await import('./flow/OPEN_SETTING_WINDOW/index')
       openSettingWindow()

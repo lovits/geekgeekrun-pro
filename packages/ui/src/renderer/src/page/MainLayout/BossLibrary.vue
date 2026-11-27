@@ -1,24 +1,11 @@
 <template>
-  <div class="page-wrap runtime-record-page flex flex-col of-hidden">
-    <div v-loading="isTableLoading" class="flex-1 of-hidden">
-      <div ref="tableContainerEl" class="h-100% of-hidden">
-        <ElTable
-          ref="tableRef"
-          :max-height="tableMaxHeight"
-          :data="tableData"
-          row-key="encryptBossId"
-          size="small"
-          table-layout="fixed"
-          highlight-current-row
-        >
-          <ElTableColumn prop="companyName" label="公司"  min-width="100" show-overflow-tooltip />
-          <ElTableColumn prop="name" label="BOSS"  min-width="100" show-overflow-tooltip />
-          <ElTableColumn prop="title" label="BOSS身份"  min-width="140" show-overflow-tooltip />
-        </ElTable>
+  <div class="ggr-table-page runtime-record-page">
+    <header class="ggr-page-header">
+      <div>
+        <h2 class="ggr-page-title">BOSS 库</h2>
+        <p class="ggr-page-desc">已采集的招聘者姓名、所属公司与职务信息</p>
       </div>
-    </div>
-    <div class="flex flex-0 flex-justify-between pt10px pb10px">
-      <div class="w100px">
+      <div class="ggr-header-actions">
         <el-button
           :loading="isTableLoading"
           size="small"
@@ -28,9 +15,32 @@
               getBossLibrary()
             }
           "
-          >刷新</el-button
         >
+          刷新
+        </el-button>
       </div>
+    </header>
+
+    <div v-loading="isTableLoading" class="table-card">
+      <div ref="tableContainerEl" class="h-100% of-hidden">
+        <ElTable
+          ref="tableRef"
+          :max-height="tableMaxHeight"
+          :data="tableData"
+          row-key="encryptBossId"
+          size="small"
+          table-layout="fixed"
+          highlight-current-row
+          empty-text="暂无招聘者记录"
+        >
+          <ElTableColumn prop="companyName" label="所属公司" min-width="140" show-overflow-tooltip />
+          <ElTableColumn prop="name" label="招聘者姓名" min-width="120" show-overflow-tooltip />
+          <ElTableColumn prop="title" label="职务／身份" min-width="160" show-overflow-tooltip />
+        </ElTable>
+      </div>
+    </div>
+
+    <div class="pager-bar">
       <ElPagination
         v-model:current-page="pagination.pageNo"
         v-model:page-size="pagination.pageSize"
@@ -42,7 +52,6 @@
         @size-change="getBossLibrary"
         @current-change="getBossLibrary"
       />
-      <div class="w100px" />
     </div>
   </div>
 </template>
@@ -64,11 +73,12 @@ const pagination = ref<Omit<PageReq & PagedRes<unknown>, 'data'>>({
 })
 const tableRef = ref<InstanceType<typeof ElTable>>()
 const isTableLoading = ref(false)
+
 async function getBossLibrary() {
   try {
     gtagRenderer('boss_library_request_sent', {
       page_no: pagination.value.pageNo,
-      page_size: pagination.value.pageSize,
+      page_size: pagination.value.pageSize
     })
     isTableLoading.value = true
     const { data: res } = (await electron.ipcRenderer.invoke('get-boss-library', {
@@ -83,13 +93,13 @@ async function getBossLibrary() {
     }
     gtagRenderer('boss_library_request_success', {
       page_no: pagination.value.pageNo,
-      page_size: pagination.value.pageSize,
+      page_size: pagination.value.pageSize
     })
   } catch (err) {
     gtagRenderer('boss_library_request_error', {
       err,
       page_no: pagination.value.pageNo,
-      page_size: pagination.value.pageSize,
+      page_size: pagination.value.pageSize
     })
     console.log(err)
     tableData.value = []
@@ -99,7 +109,9 @@ async function getBossLibrary() {
   }
 }
 
-useRecordAutoRefresh(async () => { if (!isTableLoading.value) await getBossLibrary() })
+useRecordAutoRefresh(async () => {
+  if (!isTableLoading.value) await getBossLibrary()
+})
 
 const tableMaxHeight = ref<number | undefined>(undefined)
 const tableContainerEl = ref<HTMLElement>()
@@ -116,23 +128,17 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-.page-wrap {
-  margin: 0 auto;
-  max-width: 1000px;
-  max-height: 100vh;
+.table-card {
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
-  padding-left: 20px;
-  padding-top: 20px;
-  :deep(.el-drawer) {
-    .el-drawer__header {
-      padding: 16px 20px;
-      margin-bottom: 0;
-    }
-    .el-drawer__body {
-      padding: 0;
-      margin: 0 0 20px 20px;
-      padding-right: 20px;
-    }
-  }
+  border-radius: 10px;
+  border: 1px solid var(--el-border-color-light);
+  background-color: var(--el-bg-color);
+}
+.pager-bar {
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
 }
 </style>

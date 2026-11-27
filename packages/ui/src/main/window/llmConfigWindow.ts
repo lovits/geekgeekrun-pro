@@ -1,13 +1,15 @@
 import { BrowserWindow } from 'electron'
 import path from 'path'
+import { windowBackgroundColor } from '../utils/theme'
 
 export let llmConfigWindow: BrowserWindow | null = null
 export function createLlmConfigWindow(
   opt?: Electron.BrowserWindowConstructorOptions
 ): BrowserWindow {
-  // Create the browser window.
-  if (llmConfigWindow) {
-    llmConfigWindow!.show()
+  if (llmConfigWindow && !llmConfigWindow.isDestroyed()) {
+    llmConfigWindow.show()
+    llmConfigWindow.focus()
+    return llmConfigWindow
   }
   llmConfigWindow = new BrowserWindow({
     width: 780,
@@ -16,6 +18,7 @@ export function createLlmConfigWindow(
     minHeight: 440,
     resizable: true,
     show: false,
+    backgroundColor: windowBackgroundColor(),
     autoHideMenuBar: true,
     frame: true,
     webPreferences: {

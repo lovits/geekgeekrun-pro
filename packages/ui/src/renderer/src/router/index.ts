@@ -56,14 +56,14 @@ const routes: Array<RouteRecordRaw> = [
     path: '/readNoReplyReminderLlmMock',
     component: () => import('@renderer/page/ReadNoReplyReminderLlmMock/index.vue'),
     meta: {
-      title: '已读不回自动复聊 大语言模型测试'
+      title: '已读不回跟进模拟'
     }
   },
   {
     path: '/commonJobConditionConfig',
     component: () => import('@renderer/page/CommonJobConditionConfig/index.vue'),
     meta: {
-      title: '公共职位筛选条件'
+      title: '公共筛选规则'
     }
   },
   {
@@ -72,14 +72,15 @@ const routes: Array<RouteRecordRaw> = [
     redirect: '/main-layout/GeekAutoStartChatWithBoss',
     children: [
       { path: 'Updates', component: () => import('@renderer/page/MainLayout/Updates.vue'), meta: { title: '设置' } },
+      { path: 'HrReplyRecords', component: () => import('@renderer/page/MainLayout/HrReplyRecords.vue'), meta: { title: '回复记录' } },
       { path: 'ApplicationSimulation', component: () => import('@renderer/page/MainLayout/ApplicationSimulation.vue'), meta: { title: '模拟开聊' } },
-      { path: 'CommonJobConditionConfig', component: () => import('@renderer/page/CommonJobConditionConfig/index.vue'), props: { embedded: true }, meta: { title: '公共职位正则筛选' } },
-      { path: 'LlmConfig', component: () => import('@renderer/page/LlmConfig/index.vue'), props: { embedded: true }, meta: { title: '大语言模型设置' } },
-      { path: 'BrowserPreferences', component: () => import('@renderer/page/BrowserAssistant/index.vue'), props: { embedded: true }, meta: { title: '浏览器偏好' } },
+      { path: 'CommonJobConditionConfig', component: () => import('@renderer/page/CommonJobConditionConfig/index.vue'), props: { embedded: true }, meta: { title: '公共筛选规则' } },
+      { path: 'LlmConfig', component: () => import('@renderer/page/LlmConfig/index.vue'), props: { embedded: true }, meta: { title: '大模型设置' } },
+      { path: 'BrowserPreferences', component: () => import('@renderer/page/BrowserAssistant/index.vue'), props: { embedded: true }, meta: { title: '浏览器设置' } },
       {
         path: 'SettingsPreview',
         component: () => import('@renderer/page/MainLayout/SettingsPreview/index.vue'),
-        meta: { title: '预览完整设置' }
+        meta: { title: '设置总览' }
       },
       {
         path: 'AiJobMatch',
@@ -102,11 +103,10 @@ const routes: Array<RouteRecordRaw> = [
       },
       {
         path: 'ReadNoReplyReminder',
-        component: () => import('@renderer/page/MainLayout/ReadNoReplyReminder.vue'),
-        meta: {
-          title: '已读不回自动复聊'
-        }
+        redirect: '/main-layout/AutoReply?tab=followup'
       },
+      { path: 'HrAutoReply', redirect: '/main-layout/AutoReply?tab=hr' },
+      { path: 'AutoReply', component: () => import('@renderer/page/MainLayout/AutoReply.vue'), meta: { title: '自动回复' } },
       {
         path: 'StartChatRecord',
         component: () => import('@renderer/page/MainLayout/StartChatRecord.vue'),
@@ -118,7 +118,7 @@ const routes: Array<RouteRecordRaw> = [
         path: 'MarkAsNotSuitRecord',
         component: () => import('@renderer/page/MainLayout/MarkAsNotSuitRecord.vue'),
         meta: {
-          title: '标记不合适记录'
+          title: '不合适记录'
         }
       },
       {
@@ -152,14 +152,14 @@ const routes: Array<RouteRecordRaw> = [
         path: 'prepareRun',
         component: () => import('@renderer/page/GeekAutoStartChatWithBoss/PrepareRun.vue'),
         meta: {
-          title: '自动开聊 正在预热'
+          title: '自动开聊准备中'
         }
       },
       {
         path: 'runningStatus',
         component: () => import('@renderer/page/GeekAutoStartChatWithBoss/RunningStatus.vue'),
         meta: {
-          title: '自动开聊 正在为你开聊BOSS'
+          title: '正在自动开聊'
         }
       },
       {
@@ -169,7 +169,7 @@ const routes: Array<RouteRecordRaw> = [
             '@renderer/page/GeekAutoStartChatWithBoss/RunningStatusForReadNoReplyReminder.vue'
           ),
         meta: {
-          title: '已读不回自动复聊 正在为你开聊BOSS'
+          title: '正在自动跟进已读不回'
         }
       }
     ]
@@ -178,7 +178,7 @@ const routes: Array<RouteRecordRaw> = [
     path: '/',
     component: BootstrapSplash,
     meta: {
-      title: '你的职场大机密'
+      title: '正在启动'
     }
   }
 ]

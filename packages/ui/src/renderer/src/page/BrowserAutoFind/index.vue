@@ -1,13 +1,13 @@
 <template>
-  <div class="h-screen of-hidden flex flex-col flex-items-center flex-justify-center">
-    <div>
-      <div>
-        由于您是首次使用本程序，或者您之前配置的浏览器被卸载/被删除/被移动/被更新/版本太旧，因此需要重新配置浏览器
-      </div>
-      <div>
-        首先将尝试自动配置；自动配置成功后，本对话框将自动关闭；如自动配置失败，请在下个页面中手动配置
-      </div>
-      <div>正在尝试自动配置，请稍等...</div>
+  <div class="h-screen of-hidden flex flex-col flex-items-center flex-justify-center" style="padding: 24px">
+    <div class="ggr-card" style="max-width: 520px; text-align: center; margin-bottom: 0">
+      <h3 class="ggr-card-title" style="justify-content: center; margin-bottom: 10px">正在检测可用浏览器</h3>
+      <p style="margin: 0 0 8px; font-size: 13.5px; line-height: 1.65; color: var(--el-text-color-regular)">
+        首次启动或原有浏览器路径变更时，程序会自动搜索系统中兼容的 Chrome / Edge 浏览器。
+      </p>
+      <p style="margin: 0; font-size: 12.5px; color: var(--el-text-color-secondary)">
+        检测成功后将自动进入主界面；若未检测到，将引导您手动选择或下载。
+      </p>
     </div>
   </div>
 </template>
@@ -58,6 +58,6 @@ a:link,
 a:visited,
 a:hover,
 a:active {
-  color: #409eff;
+  color: var(--el-color-primary);
 }
 </style>

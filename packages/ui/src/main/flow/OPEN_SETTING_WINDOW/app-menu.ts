@@ -24,7 +24,7 @@ const template: (MenuItemConstructorOptions | MenuItem)[] = [
       ] as MenuItemConstructorOptions[]
     : []),
   {
-    label: 'Edit',
+    label: '编辑',
     submenu: [
       { role: 'undo' },
       { role: 'redo' },
@@ -39,7 +39,7 @@ const template: (MenuItemConstructorOptions | MenuItem)[] = [
             { role: 'selectAll' },
             { type: 'separator' },
             {
-              label: 'Speech',
+              label: '语音',
               submenu: [{ role: 'startSpeaking' }, { role: 'stopSpeaking' }]
             }
           ]
@@ -51,7 +51,7 @@ const template: (MenuItemConstructorOptions | MenuItem)[] = [
     role: 'help',
     submenu: [
       {
-        label: '为当前窗口打开调试工具',
+        label: '打开开发者工具',
         accelerator: 'CommandOrControl+Shift+I',
         click(_, win) {
           if (win instanceof BrowserWindow) openDevTools(win)

@@ -1,7 +1,7 @@
 <template>
   <div>
-    <el-button p-0 h-auto flex size="small" type="text" :icon="Plus" @click="addCondition"
-      >添加条件</el-button
+    <el-button p-0 h-auto flex size="small" link type="primary" :icon="Plus" @click="addCondition"
+      >添加条件组合</el-button
     >
     <div class="job-combo-filter" mt-8px>
       <el-table
@@ -14,24 +14,25 @@
             return {
               backgroundColor:
                 duplicatedMap.get(getStaticCombineFilterKey(row))?.length > 1
-                  ? '#fcd4b7'
+                  ? 'var(--el-color-warning-light-9)'
                   : 'transparent'
             }
           }
         "
       >
         <template #empty>
-          <div lh-1.5em>
-            列表中没有条件，将仅使用默认的“初始空条件”为您筛选职位<br />
-            你可以点击表格左上角“<el-button
+          <div lh-1.6em py-8px>
+            暂未添加条件组合，将默认按“全部不限”查找职位<br />
+            可点击“<el-button
               p-0
               h-auto
               size="small"
-              type="text"
+              link
+              type="primary"
               :icon="Plus"
               @click="addCondition"
-              >添加条件</el-button
-            >”按钮，添加更多筛选条件。
+              >添加条件组合</el-button
+            >”按顺序配置多组筛选条件
           </div>
         </template>
         <el-table-column :resizable="false" label="" :width="80">
@@ -82,7 +83,7 @@
                 <div flex justify-between items-center>
                   <div font-size-12px lh-1.2em>
                     <template v-if="row.city">{{ row.city }}</template>
-                    <template v-else><i color-gray>全国</i></template>
+                    <template v-else><span style="color: var(--el-text-color-secondary)">全国</span></template>
                   </div>
                   <el-button size="small" pl4px pr4px @click="showDialog">选择</el-button>
                 </div>
@@ -192,10 +193,9 @@
           return it.length > 1
         })
       "
-      color-orange
-      font-size-12px
+      style="margin-top: 8px; font-size: 12px; color: var(--el-color-warning)"
     >
-      列表中被橙色高亮的条件存在重复项，相关重复项将被合并，运行时遍历顺序以第一次出现为准
+      高亮行存在重复条件，运行时将自动合并并按首次出现顺序查找
     </div>
   </div>
 </template>
